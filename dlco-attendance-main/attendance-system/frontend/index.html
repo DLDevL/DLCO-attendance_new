@@ -1,0 +1,1474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Student Attendance System</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #f0f2f8;
+  --surface: #ffffff;
+  --surface2: #f5f6fa;
+  --border: rgba(99,102,241,0.12);
+  --border2: rgba(99,102,241,0.25);
+  --text: #1e1b4b;
+  --text2: #6b7280;
+  --text3: #9ca3af;
+  --radius: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
+  --accent: #6366f1;
+  --accent2: #818cf8;
+  --accent-light: #eef2ff;
+  --green: #16a34a; --green-light: #dcfce7; --green-text: #14532d;
+  --red: #dc2626;   --red-light: #fee2e2;   --red-text: #7f1d1d;
+  --amber: #d97706; --amber-light: #fef3c7; --amber-text: #78350f;
+  --shadow-sm: 0 1px 3px rgba(99,102,241,0.08), 0 1px 2px rgba(99,102,241,0.06);
+  --shadow: 0 4px 16px rgba(99,102,241,0.10), 0 2px 6px rgba(99,102,241,0.06);
+  --shadow-lg: 0 10px 32px rgba(99,102,241,0.14), 0 4px 12px rgba(99,102,241,0.08);
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* ── HEADER ── */
+header {
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #6366f1 100%);
+  color: #fff;
+  padding: 0 1.5rem;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 4px 20px rgba(79,70,229,0.35);
+}
+header::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  pointer-events: none;
+}
+.header-left { display: flex; align-items: center; gap: 12px; position: relative; }
+.header-actions { display: flex; align-items: center; gap: 10px; position: relative; }
+.header-icon {
+  width: 36px; height: 36px; border-radius: 10px;
+  background: rgba(255,255,255,0.2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+}
+header h1 { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; position: relative; }
+header .sub-title { font-size: 11px; opacity: 0.7; margin-top: 1px; }
+.header-date {
+  font-size: 12px; opacity: 0.8; position: relative;
+  background: rgba(255,255,255,0.15);
+  padding: 5px 12px; border-radius: 100px;
+}
+
+/* ── CONTAINER ── */
+.container { max-width: 980px; margin: 0 auto; padding: 1.75rem 1rem; }
+
+/* ── SUMMARY CARDS ── */
+.summary-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 1.75rem;
+}
+.s-card {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem 1rem;
+  text-align: center;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  position: relative;
+  overflow: hidden;
+}
+.s-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  border-radius: 16px 16px 0 0;
+}
+.s-card:nth-child(1)::before { background: linear-gradient(90deg, #6366f1, #818cf8); }
+.s-card:nth-child(2)::before { background: linear-gradient(90deg, #16a34a, #4ade80); }
+.s-card:nth-child(3)::before { background: linear-gradient(90deg, #dc2626, #f87171); }
+.s-card:nth-child(4)::before { background: linear-gradient(90deg, #d97706, #fbbf24); }
+.s-card:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
+.s-card .val { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; margin-top: 4px; }
+.s-card .lbl { font-size: 11px; color: var(--text2); margin-top: 3px; text-transform: uppercase; letter-spacing: 0.05em; }
+.s-card .icon { font-size: 22px; margin-bottom: 2px; }
+
+/* ── TABS ── */
+.tabs-wrap {
+  background: var(--surface);
+  border-radius: var(--radius-xl);
+  padding: 5px;
+  display: inline-flex;
+  gap: 2px;
+  margin-bottom: 1.5rem;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border);
+}
+.tab {
+  padding: 8px 20px; font-size: 13px; font-weight: 500;
+  color: var(--text2); border: none; background: none;
+  cursor: pointer; border-radius: calc(var(--radius-xl) - 4px);
+  transition: all 0.22s ease; white-space: nowrap;
+}
+.tab:hover { color: var(--accent); background: var(--accent-light); }
+.tab.active {
+  background: linear-gradient(135deg, #6366f1, #7c3aed);
+  color: #fff;
+  box-shadow: 0 3px 10px rgba(99,102,241,0.35);
+}
+
+/* ── PANELS ── */
+.panel { display: none; animation: fadeSlide 0.3s ease; }
+.panel.active { display: block; }
+@keyframes fadeSlide {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── CARDS ── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.2s ease;
+}
+.card:hover { box-shadow: var(--shadow); }
+
+/* ── FORM ── */
+.form-row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 1rem; }
+.field { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 120px; }
+.field label { font-size: 11px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.05em; }
+
+input[type="text"], input[type="date"], input[type="email"], input[type="password"], input[type="number"], select {
+  height: 40px; border-radius: var(--radius);
+  border: 1.5px solid var(--border2);
+  background: var(--surface2); color: var(--text);
+  font-size: 14px; padding: 0 12px; width: 100%;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+input:focus, select:focus {
+  border-color: var(--accent);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
+}
+
+/* ── BUTTONS ── */
+.btn {
+  height: 40px; padding: 0 18px; border-radius: var(--radius);
+  border: 1.5px solid var(--border2);
+  background: var(--surface); color: var(--text);
+  font-size: 13px; font-weight: 500; cursor: pointer;
+  white-space: nowrap; display: inline-flex; align-items: center; gap: 6px;
+  transition: all 0.2s ease;
+}
+.btn:hover { background: var(--accent-light); color: var(--accent); border-color: var(--accent); transform: translateY(-1px); }
+.btn:active { transform: translateY(0) scale(0.98); }
+.btn.primary {
+  background: linear-gradient(135deg, #6366f1, #7c3aed);
+  color: #fff; border-color: transparent;
+  box-shadow: 0 3px 10px rgba(99,102,241,0.3);
+}
+.btn.primary:hover { box-shadow: 0 5px 16px rgba(99,102,241,0.4); opacity: 0.92; color: #fff; background: linear-gradient(135deg, #6366f1, #7c3aed); }
+.btn.danger { color: var(--red); border-color: #fca5a5; }
+.btn.danger:hover { background: var(--red-light); color: var(--red); border-color: var(--red); }
+.btn.light {
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+  border-color: rgba(255,255,255,0.25);
+}
+.btn.light:hover { background: rgba(255,255,255,0.25); color: #fff; border-color: rgba(255,255,255,0.4); }
+
+.hidden { display: none !important; }
+.auth-wrap {
+  min-height: calc(100vh - 64px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+}
+.auth-card {
+  width: min(430px, 100%);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 1.5rem;
+}
+.auth-card h2 { font-size: 22px; margin-bottom: 4px; }
+.auth-card p { color: var(--text2); font-size: 13px; margin-bottom: 1rem; }
+.auth-toggle { display: flex; gap: 8px; margin-bottom: 1rem; }
+.auth-toggle .tab {
+  flex: 1;
+  background: var(--surface2);
+  color: var(--accent);
+}
+.auth-toggle .tab.active {
+  background: linear-gradient(135deg, #6366f1, #7c3aed);
+  color: #fff;
+}
+.role-badge {
+  font-size: 12px;
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 100px;
+  padding: 5px 10px;
+}
+
+/* ── SECTION LABEL ── */
+.section-lbl {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--accent); margin-bottom: 12px;
+  display: flex; align-items: center; gap: 6px;
+}
+.section-lbl::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, var(--border2), transparent); }
+
+/* ── STUDENT ROWS ── */
+.att-grid { display: grid; gap: 8px; }
+.stu-row {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 12px 16px;
+  display: flex; align-items: center; gap: 14px;
+  transition: all 0.22s ease;
+  animation: rowIn 0.3s ease both;
+}
+.stu-row:hover { box-shadow: var(--shadow); transform: translateX(3px); border-color: var(--border2); }
+@keyframes rowIn {
+  from { opacity: 0; transform: translateX(-12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.avatar {
+  width: 40px; height: 40px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700; flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+  transition: transform 0.2s ease;
+}
+.stu-row:hover .avatar { transform: scale(1.08); }
+.stu-info { flex: 1; min-width: 0; }
+.stu-name { font-size: 14px; font-weight: 600; color: var(--text); }
+.stu-meta { font-size: 12px; color: var(--text2); margin-top: 1px; }
+
+/* ── ATTENDANCE BUTTONS ── */
+.att-btns { display: flex; gap: 7px; }
+.att-btn {
+  width: 36px; height: 36px; border-radius: 50%;
+  border: 2px solid; font-size: 11px; font-weight: 700;
+  cursor: pointer; background: none;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative;
+}
+.att-btn:hover { transform: scale(1.15); }
+.att-btn:active { transform: scale(0.95); }
+.att-btn.p { border-color: #86efac; color: #166534; }
+.att-btn.p:hover { background: #dcfce7; box-shadow: 0 0 0 3px rgba(22,163,74,0.15); }
+.att-btn.p.sel { background: linear-gradient(135deg, #16a34a, #22c55e); border-color: #16a34a; color: #fff; box-shadow: 0 3px 10px rgba(22,163,74,0.35); }
+.att-btn.a { border-color: #fca5a5; color: #991b1b; }
+.att-btn.a:hover { background: #fee2e2; box-shadow: 0 0 0 3px rgba(220,38,38,0.15); }
+.att-btn.a.sel { background: linear-gradient(135deg, #dc2626, #ef4444); border-color: #dc2626; color: #fff; box-shadow: 0 3px 10px rgba(220,38,38,0.35); }
+.att-btn.l { border-color: #fcd34d; color: #92400e; }
+.att-btn.l:hover { background: #fef3c7; box-shadow: 0 0 0 3px rgba(217,119,6,0.15); }
+.att-btn.l.sel { background: linear-gradient(135deg, #d97706, #f59e0b); border-color: #d97706; color: #fff; box-shadow: 0 3px 10px rgba(217,119,6,0.35); }
+.att-btn.e { border-color: rgba(56,189,248,0.5); color: #38bdf8; font-size: 9px; }
+.att-btn.e:hover { background: rgba(56,189,248,0.12); box-shadow: 0 0 16px rgba(56,189,248,0.4); }
+.att-btn.e.sel { background: linear-gradient(135deg, #0369a1, #38bdf8); border-color: #38bdf8; color: #fff; box-shadow: 0 3px 14px rgba(56,189,248,0.5), 0 0 20px rgba(56,189,248,0.3); }
+.att-btn.cl { border-color: rgba(168,85,247,0.5); color: #c084fc; font-size: 9px; }
+.att-btn.cl:hover { background: rgba(168,85,247,0.12); box-shadow: 0 0 16px rgba(168,85,247,0.4); }
+.att-btn.cl.sel { background: linear-gradient(135deg, #7e22ce, #c084fc); border-color: #c084fc; color: #fff; box-shadow: 0 3px 14px rgba(168,85,247,0.5), 0 0 20px rgba(168,85,247,0.3); }
+
+.pct { font-size: 12px; font-weight: 700; min-width: 40px; text-align: right; }
+.pct.good { color: var(--green); }
+.pct.warn { color: var(--amber); }
+.pct.bad  { color: var(--red); }
+
+/* ── TABLE ── */
+.hist-wrap { overflow-x: auto; border-radius: var(--radius); }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead { background: linear-gradient(90deg, #f5f3ff, #ede9fe); }
+th { text-align: left; padding: 11px 14px; font-weight: 600; color: var(--accent); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1.5px solid var(--border2); }
+td { padding: 10px 14px; border-bottom: 1px solid var(--border); color: var(--text); transition: background 0.15s; }
+tr:last-child td { border-bottom: none; }
+tbody tr { transition: background 0.15s ease; }
+tbody tr:hover td { background: #f5f3ff; }
+
+/* ── BADGES ── */
+.badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 100px; font-size: 11px; font-weight: 600; }
+.badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; }
+.badge.P { background: var(--green-light); color: var(--green-text); }
+.badge.P::before { background: var(--green); }
+.badge.A { background: var(--red-light); color: var(--red-text); }
+.badge.A::before { background: var(--red); }
+.badge.L { background: var(--amber-light); color: var(--amber-text); }
+.badge.L::before { background: var(--amber); }
+.badge.E { background: rgba(56,189,248,0.15); color: #7dd3fc; border: 1px solid rgba(56,189,248,0.3); }
+.badge.E::before { background: #38bdf8; box-shadow: 0 0 6px rgba(56,189,248,0.8); }
+.badge.CL { background: rgba(168,85,247,0.15); color: #d8b4fe; border: 1px solid rgba(168,85,247,0.3); }
+.badge.CL::before { background: #c084fc; box-shadow: 0 0 6px rgba(168,85,247,0.8); }
+
+/* ── CLASS TAGS ── */
+.class-tags-wrap { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.class-tag {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--accent-light); border: 1px solid var(--border2);
+  border-radius: 100px; padding: 5px 14px; font-size: 13px;
+  color: var(--accent); font-weight: 500;
+  transition: all 0.2s ease;
+  animation: tagIn 0.25s ease both;
+}
+@keyframes tagIn { from { opacity:0; transform: scale(0.85); } to { opacity:1; transform: scale(1); } }
+.class-tag:hover { background: #e0e7ff; }
+.class-tag button { background: none; border: none; cursor: pointer; color: var(--red); font-size: 16px; line-height: 1; padding: 0; transition: transform 0.15s; }
+.class-tag button:hover { transform: scale(1.2); }
+
+/* ── REPORT BAR ── */
+.bar-bg { height: 6px; background: var(--surface2); border-radius: 3px; margin-top: 5px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 3px; transition: width 0.8s cubic-bezier(0.22,1,0.36,1); }
+.alert-low {
+  font-size: 11px; color: var(--red); margin-top: 4px;
+  display: flex; align-items: center; gap: 4px; font-weight: 500;
+}
+
+/* ── LEGEND ── */
+.legend { display: flex; gap: 14px; font-size: 12px; color: var(--text2); flex-wrap: wrap; }
+.legend span { display: flex; align-items: center; gap: 6px; font-weight: 500; }
+.legend .dot { width: 10px; height: 10px; border-radius: 50%; }
+
+/* ── EMPTY STATE ── */
+.empty {
+  text-align: center; padding: 3rem 1rem; color: var(--text3); font-size: 13px;
+}
+.empty-icon { font-size: 40px; margin-bottom: 10px; opacity: 0.4; }
+
+/* ── TOAST ── */
+.toast {
+  position: fixed; bottom: 28px; right: 28px;
+  background: linear-gradient(135deg, #1e1b4b, #312e81);
+  color: #fff; padding: 12px 20px;
+  border-radius: var(--radius-lg); font-size: 13px; font-weight: 500;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  transform: translateY(20px);
+  z-index: 999; box-shadow: 0 8px 24px rgba(30,27,75,0.3);
+  display: flex; align-items: center; gap: 8px;
+}
+.toast.show { opacity: 1; transform: translateY(0); }
+
+/* ── DIVIDER ── */
+.divider { height: 1px; background: linear-gradient(90deg, transparent, var(--border2), transparent); margin: 12px 0; }
+
+/* ── MOBILE ── */
+@media (max-width: 600px) {
+  .form-row { flex-direction: column; }
+  .tabs-wrap { overflow-x: auto; width: 100%; }
+  .summary-row { grid-template-columns: 1fr 1fr; }
+  header h1 { font-size: 15px; }
+  .stu-row { flex-wrap: wrap; }
+}
+
+/* ── SCROLL REVEAL STAGGER ── */
+.att-grid .stu-row:nth-child(1) { animation-delay: 0.02s; }
+.att-grid .stu-row:nth-child(2) { animation-delay: 0.05s; }
+.att-grid .stu-row:nth-child(3) { animation-delay: 0.08s; }
+.att-grid .stu-row:nth-child(4) { animation-delay: 0.11s; }
+.att-grid .stu-row:nth-child(5) { animation-delay: 0.14s; }
+.att-grid .stu-row:nth-child(6) { animation-delay: 0.17s; }
+.att-grid .stu-row:nth-child(7) { animation-delay: 0.20s; }
+.att-grid .stu-row:nth-child(8) { animation-delay: 0.23s; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <div class="header-icon">📋</div>
+    <div>
+      <h1>Attendance Register</h1>
+      <div class="sub-title">Student management system</div>
+    </div>
+  </div>
+  <div class="header-actions">
+    <div class="header-date" id="header-date"></div>
+    <div class="role-badge hidden" id="role-badge"></div>
+    <button class="btn light hidden" id="logout-btn" onclick="logout()">Logout</button>
+  </div>
+</header>
+
+<div class="auth-wrap" id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-toggle">
+      <button class="tab active" id="login-mode" onclick="setAuthMode('login')">Login</button>
+      <button class="tab" id="signup-mode" onclick="setAuthMode('signup')">Sign up</button>
+    </div>
+    <h2 id="auth-title">Welcome back</h2>
+    <p id="auth-help">Log in to manage your classes and attendance.</p>
+    <div class="form-row">
+      <div class="field" style="min-width:100%"><label>Email</label><input type="email" id="auth-email" autocomplete="email"></div>
+      <div class="field" style="min-width:100%"><label>Password</label><input type="password" id="auth-password" autocomplete="current-password"></div>
+      <button class="btn primary" style="width:100%;justify-content:center" onclick="submitAuth()" id="auth-submit">Login</button>
+    </div>
+  </div>
+</div>
+
+<div class="container hidden" id="app-shell">
+
+  <!-- Summary cards -->
+  <div class="summary-row">
+    <div class="s-card">
+      <div class="icon">👥</div>
+      <div class="val" id="sc-total">—</div>
+      <div class="lbl">Total students</div>
+    </div>
+    <div class="s-card">
+      <div class="icon">✅</div>
+      <div class="val" id="sc-p" style="color:#16a34a">—</div>
+      <div class="lbl">Present today</div>
+    </div>
+    <div class="s-card">
+      <div class="icon">❌</div>
+      <div class="val" id="sc-a" style="color:#dc2626">—</div>
+      <div class="lbl">Absent today</div>
+    </div>
+    <div class="s-card">
+      <div class="icon">📊</div>
+      <div class="val" id="sc-avg">—</div>
+      <div class="lbl">Avg attendance</div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs-wrap">
+    <button class="tab active teacher-only" data-tab="mark" onclick="showTab('mark')">📝 Mark attendance</button>
+    <button class="tab" data-tab="history" onclick="showTab('history')">📅 History</button>
+    <button class="tab teacher-only" data-tab="students" onclick="showTab('students')">👨‍🎓 Students</button>
+    <button class="tab" data-tab="report" onclick="showTab('report')">📈 Report</button>
+    <button class="tab teacher-only" data-tab="leaves" onclick="showTab('leaves')">🏖️ Leaves</button>
+  </div>
+
+  <!-- MARK ATTENDANCE -->
+  <div id="tab-mark" class="panel active teacher-only">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:14px">
+        <div style="flex:1">
+          <p class="section-lbl">Select date &amp; class</p>
+          <div class="form-row" style="margin:0">
+            <div class="field" style="flex:0 0 160px">
+              <label>Date</label>
+              <input type="date" id="att-date">
+            </div>
+            <div class="field" style="flex:0 0 175px">
+              <label>Class / Section</label>
+              <select id="att-class"></select>
+            </div>
+            <button class="btn primary" onclick="saveAttendance()" style="margin-top:22px">💾 Save attendance</button>
+            <button class="btn danger" onclick="resetAttendance()" style="margin-top:22px">♻️ Reset day</button>
+          </div>
+        </div>
+        <div>
+          <div class="legend">
+            <span><span class="dot" style="background:#16a34a"></span>P = Present</span>
+            <span><span class="dot" style="background:#dc2626"></span>A = Absent</span>
+            <span><span class="dot" style="background:#d97706"></span>L = Late</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="att-grid" id="att-grid"></div>
+  </div>
+
+  <!-- HISTORY -->
+  <div id="tab-history" class="panel">
+    <div class="card">
+      <p class="section-lbl">Filter records</p>
+      <div class="form-row">
+        <div class="field"><label>From date</label><input type="date" id="h-from"></div>
+        <div class="field"><label>To date</label><input type="date" id="h-to"></div>
+        <div class="field teacher-only"><label>Student</label><select id="h-stu"></select></div>
+        <button class="btn" onclick="loadHistory()" style="margin-top:22px">🔍 Filter</button>
+      </div>
+    </div>
+    <div class="card hist-wrap">
+      <table>
+        <thead>
+          <tr><th>Date</th><th>Student</th><th>Roll</th><th>Class</th><th>Status</th></tr>
+        </thead>
+        <tbody id="hist-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- STUDENTS -->
+  <div id="tab-students" class="panel teacher-only">
+    <div class="card">
+      <p class="section-lbl">Add new student</p>
+      <div class="form-row">
+        <div class="field"><label>Full name</label><input type="text" id="s-name" placeholder="e.g. Priya Sharma"></div>
+        <div class="field"><label>Roll number</label><input type="text" id="s-roll" placeholder="e.g. R011"></div>
+        <div class="field"><label>Class / Section</label><select id="s-class"></select></div>
+        <div class="field"><label>Login email (must match their signup email)</label><input type="email" id="s-email" placeholder="e.g. priya@school.com"></div>
+        <button class="btn primary" onclick="addStudent()" style="margin-top:22px">➕ Add student</button>
+      </div>
+    </div>
+    <div class="card">
+      <p class="section-lbl">Manage classes</p>
+      <div class="form-row" style="margin-bottom:8px">
+        <div class="field"><input type="text" id="cls-name" placeholder="e.g. Class 12-A"></div>
+        <button class="btn" onclick="addClass()">➕ Add class</button>
+      </div>
+      <div class="class-tags-wrap" id="class-tags"></div>
+    </div>
+    <div class="att-grid" id="stu-list"></div>
+  </div>
+
+  <!-- REPORT -->
+  <div id="tab-report" class="panel">
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px">
+        <p class="section-lbl" style="margin:0">Attendance summary</p>
+        <div class="field teacher-only" style="flex:0 0 190px;margin:0">
+          <select id="r-cls" onchange="loadReport()"></select>
+        </div>
+      </div>
+      <div id="report-list"></div>
+    </div>
+  </div>
+
+  <!-- LEAVES -->
+  <div id="tab-leaves" class="panel teacher-only">
+
+    <!-- Step 1: Set total leave balance -->
+    <div class="card">
+      <p class="section-lbl">Step 1 — Set total leave balance per student</p>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:14px;">
+        Enter the total number of <span style="color:#38bdf8;font-weight:600">Earned Leaves (EL)</span> and
+        <span style="color:#c084fc;font-weight:600">Casual Leaves (CL)</span> allotted to each student for the term.
+        Once set, click the EL / CL buttons on each student row to use up their leave. The balance decreases automatically.
+      </div>
+      <div class="form-row" style="margin-bottom:12px">
+        <div class="field" style="flex:0 0 180px">
+          <label>Filter by class</label>
+          <select id="lv-cls" onchange="renderLeavesTab()">
+            <option value="">All students</option>
+          </select>
+        </div>
+      </div>
+      <div id="leaves-set-grid"></div>
+      <div style="margin-top:14px;display:flex;gap:10px;justify-content:flex-end">
+        <button class="btn primary" onclick="saveAllLeaves()">💾 Save leave totals</button>
+      </div>
+    </div>
+
+    <!-- Step 2: Use leaves -->
+    <div class="card">
+      <p class="section-lbl">Step 2 — Use leaves (click EL or CL to deduct from balance)</p>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:14px;">
+        Each click on <span style="color:#38bdf8;font-weight:600">EL</span> or
+        <span style="color:#c084fc;font-weight:600">CL</span> deducts 1 day from that student's balance.
+        These are <strong style="color:#34d399">not counted as absences</strong>.
+      </div>
+      <div id="leaves-use-grid"></div>
+    </div>
+
+    <!-- Summary -->
+    <div class="card">
+      <p class="section-lbl">Leave balance summary</p>
+      <div id="leave-summary"></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = '/api';
+let LOCAL = { classes: [], students: [], attendance: [], leaves: {} };
+let USE_LOCAL = false;
+let AUTH = JSON.parse(localStorage.getItem('attendance_auth') || 'null');
+let AUTH_MODE = 'login';
+
+function isTeacher() {
+  return AUTH?.user?.role === 'teacher';
+}
+
+function saveAuth(auth) {
+  AUTH = auth;
+  localStorage.setItem('attendance_auth', JSON.stringify(auth));
+}
+
+function clearAuth() {
+  AUTH = null;
+  localStorage.removeItem('attendance_auth');
+}
+
+function setAuthMode(mode) {
+  AUTH_MODE = mode;
+  document.getElementById('login-mode').classList.toggle('active', mode === 'login');
+  document.getElementById('signup-mode').classList.toggle('active', mode === 'signup');
+  document.getElementById('auth-title').textContent = mode === 'login' ? 'Welcome back' : 'Create account';
+  document.getElementById('auth-help').textContent = 'Log in to manage your classes and attendance.';
+  document.getElementById('auth-submit').textContent = mode === 'login' ? 'Login' : 'Create account';
+}
+
+async function submitAuth() {
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  if (!email || !password) return toast('Enter email and password');
+
+  try {
+    const body = AUTH_MODE === 'signup' ? { email, password, role: 'teacher' } : { email, password };
+    const data = await api('POST', `/auth/${AUTH_MODE}`, body);
+    if (!data.access_token) {
+      toast(data.message || 'Account created. Confirm your email before logging in.');
+      setAuthMode('login');
+      return;
+    }
+    saveAuth({ token: data.access_token, user: data.user });
+    await init();
+    toast(`Logged in as ${data.user.role}`);
+  } catch(e) { toast(e.message); }
+}
+
+function requireTeacherClient() {
+  if (!isTeacher()) {
+    toast('Teacher access required');
+    return false;
+  }
+  return true;
+}
+
+async function api(method, path, body) {
+  if (USE_LOCAL) return localAPI(method, path, body);
+  try {
+    const opts = { method, headers: { 'Content-Type': 'application/json' } };
+    if (AUTH?.token) opts.headers.Authorization = `Bearer ${AUTH.token}`;
+    if (body) opts.body = JSON.stringify(body);
+    const res = await fetch(API + path, opts);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Request failed');
+    return data;
+  } catch(e) {
+    console.warn('API Error, check if server is running:', e);
+    // Only fallback if we explicitly want to, otherwise we might show stale local data
+    // USE_LOCAL = true; 
+    // loadLocal();
+    // return localAPI(method, path, body);
+    throw e;
+  }
+}
+
+function loadLocal() {
+  try {
+    const primary = localStorage.getItem('att_db_v3');
+    if (primary) {
+      const parsed = JSON.parse(primary);
+      if (parsed && Array.isArray(parsed.students)) { LOCAL = parsed; return; }
+    }
+  } catch(e) {}
+  // fallback to backup
+  try {
+    const backup = localStorage.getItem('att_db_backup');
+    if (backup) {
+      const parsed = JSON.parse(backup);
+      if (parsed && Array.isArray(parsed.students)) {
+        LOCAL = parsed;
+        localStorage.setItem('att_db_v3', backup);
+      }
+    }
+  } catch(e) {}
+}
+
+function saveLocal() {
+  try {
+    const data = JSON.stringify(LOCAL);
+    localStorage.setItem('att_db_v3', data);
+    localStorage.setItem('att_db_backup', data); // backup copy
+  } catch(e) { console.warn('Save failed:', e); }
+}
+function genId() { return 's' + Date.now() + Math.floor(Math.random()*9999); }
+
+function localAPI(method, path, body) {
+  const [base, qs] = path.split('?');
+  const params = qs ? Object.fromEntries(new URLSearchParams(qs)) : {};
+  if (method !== 'GET' && !base.startsWith('/auth') && !isTeacher()) {
+    throw new Error('Teacher access required');
+  }
+  if (base === '/classes') {
+    if (method === 'GET') return { classes: LOCAL.classes };
+    if (method === 'POST') {
+      if (LOCAL.classes.includes(body.name)) throw new Error('Class already exists');
+      LOCAL.classes.push(body.name); saveLocal(); return { classes: LOCAL.classes };
+    }
+  }
+  if (base.startsWith('/classes/') && method === 'DELETE') {
+    const name = decodeURIComponent(base.split('/classes/')[1]);
+    LOCAL.classes = LOCAL.classes.filter(c => c !== name); saveLocal(); return { classes: LOCAL.classes };
+  }
+  if (base === '/students') {
+    if (method === 'GET') { let s = LOCAL.students; if (params.cls) s = s.filter(x => x.cls === params.cls); return { students: s }; }
+    if (method === 'POST') {
+      if (LOCAL.students.some(s => s.roll === body.roll)) throw new Error('Roll number already exists');
+      const s = { id: genId(), ...body }; LOCAL.students.push(s); saveLocal(); return { student: s };
+    }
+  }
+  if (base.startsWith('/students/') && method === 'DELETE') {
+    const id = base.split('/students/')[1];
+    LOCAL.students = LOCAL.students.filter(s => s.id !== id);
+    LOCAL.attendance = LOCAL.attendance.filter(a => a.sid !== id);
+    saveLocal(); return { message: 'removed' };
+  }
+  if (base === '/attendance') {
+    if (method === 'GET') {
+      let r = [...LOCAL.attendance];
+      if (params.date) r = r.filter(x => x.date === params.date);
+      if (params.sid)  r = r.filter(x => x.sid === params.sid);
+      if (params.from) r = r.filter(x => x.date >= params.from);
+      if (params.to)   r = r.filter(x => x.date <= params.to);
+      return { attendance: r.sort((a,b) => b.date.localeCompare(a.date)) };
+    }
+    if (method === 'POST') {
+      const sids = new Set(body.records.map(r => r.sid));
+      LOCAL.attendance = LOCAL.attendance.filter(a => !(a.date === body.date && sids.has(a.sid)));
+      body.records.forEach(r => LOCAL.attendance.push({ date: body.date, sid: r.sid, status: r.status }));
+      saveLocal(); return { message: 'saved' };
+    }
+  }
+  if (base === '/report') {
+    let stus = LOCAL.students;
+    if (params.cls) stus = stus.filter(s => s.cls === params.cls);
+    const report = stus.map(s => {
+      const recs = LOCAL.attendance.filter(a => a.sid === s.id);
+      const total = recs.length;
+      const present  = recs.filter(a => a.status==='P'||a.status==='L').length;
+      const absent   = recs.filter(a => a.status==='A').length;
+      const late     = recs.filter(a => a.status==='L').length;
+      const elUsed   = recs.filter(a => a.status==='E').length;
+      const clUsed   = recs.filter(a => a.status==='CL').length;
+      // EL and CL are NOT absences — treat as present for % calculation
+      const effectivePresent = present + elUsed + clUsed;
+      const pct = total > 0 ? Math.round((effectivePresent/total)*100) : null;
+      const lvData = LOCAL.leaves[s.id] || { el: 0, cl: 0 };
+      return { ...s, totalSessions: total, present, absent, late,
+        elUsed, clUsed, elAllotted: lvData.el, clAllotted: lvData.cl,
+        attendancePct: pct,
+        status: pct===null?'no-data':pct>=75?'good':pct>=50?'warning':'low' };
+    });
+    return { report: report.sort((a,b) => (b.attendancePct||0)-(a.attendancePct||0)) };
+  }
+  throw new Error('Unknown API path: ' + path);
+}
+
+let state = { students: [], classes: [], attState: {} };
+function today() { return new Date().toISOString().slice(0,10); }
+
+const AVATARS = [
+  ['#c7d2fe','#3730a3'],['#a7f3d0','#065f46'],['#fecaca','#7f1d1d'],
+  ['#fde68a','#78350f'],['#ddd6fe','#4c1d95'],['#bfdbfe','#1e3a5f'],
+  ['#fbcfe8','#831843'],['#d1fae5','#064e3b']
+];
+function initials(n) { return n.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(); }
+function avatarStyle(i) { const [bg,c] = AVATARS[i%AVATARS.length]; return `background:${bg};color:${c}`; }
+function pctClass(p) { return p===null?'':p>=75?'good':p>=50?'warn':'bad'; }
+
+async function init() {
+  const now = new Date();
+  document.getElementById('header-date').textContent = now.toLocaleDateString('en-IN', {weekday:'short',day:'numeric',month:'short',year:'numeric'});
+  document.getElementById('att-date').value = today();
+  setAuthMode(AUTH_MODE);
+
+  if (!AUTH?.token) {
+    showAuth();
+    return;
+  }
+
+  try {
+    const me = await api('GET', '/auth/me');
+    AUTH.user = me.user;
+    saveAuth(AUTH);
+
+    showApp();
+    await loadClasses();
+    await loadStudents();
+    
+    // Sync LOCAL with API data so summary and other parts work
+    const attData = await api('GET', '/attendance');
+    LOCAL.attendance = attData.attendance;
+    
+    const lvData = await api('GET', '/leaves');
+    LOCAL.leaves = {};
+    lvData.leaves.forEach(l => {
+      LOCAL.leaves[l.sid] = { el: l.el_total, cl: l.cl_total, elUsed: l.el_used, clUsed: l.cl_used };
+    });
+
+    state.students = LOCAL.students = (await api('GET', '/students')).students;
+    state.classes  = LOCAL.classes  = (await api('GET', '/classes')).classes;
+
+    updateSummary();
+    showTab(isTeacher() ? 'mark' : 'history');
+  } catch (e) {
+    if (e.message.toLowerCase().includes('login') || e.message.toLowerCase().includes('session') || e.message.toLowerCase().includes('expired')) {
+      clearAuth();
+      showAuth();
+      toast('Please log in again');
+      return;
+    }
+    console.warn('Backend init failed, using local storage:', e);
+    USE_LOCAL = true;
+    loadLocal();
+    state.students = LOCAL.students || [];
+    state.classes  = LOCAL.classes  || [];
+    await loadClasses();
+    await loadStudents();
+    updateSummary();
+    showTab(isTeacher() ? 'mark' : 'history');
+  }
+}
+
+function showAuth() {
+  document.getElementById('auth-screen').classList.remove('hidden');
+  document.getElementById('app-shell').classList.add('hidden');
+  document.getElementById('role-badge').classList.add('hidden');
+  document.getElementById('logout-btn').classList.add('hidden');
+}
+
+function showApp() {
+  document.getElementById('auth-screen').classList.add('hidden');
+  document.getElementById('app-shell').classList.remove('hidden');
+  document.getElementById('role-badge').textContent = `${AUTH.user.email} · ${AUTH.user.role}`;
+  document.getElementById('role-badge').classList.remove('hidden');
+  document.getElementById('logout-btn').classList.remove('hidden');
+  applyRoleUI();
+}
+
+function applyRoleUI() {
+  document.querySelectorAll('.teacher-only').forEach(el => {
+    el.classList.toggle('hidden', !isTeacher());
+  });
+}
+
+async function logout() {
+  try { await api('POST', '/auth/logout'); } catch(e) {}
+  clearAuth();
+  showAuth();
+  toast('Logged out');
+}
+
+async function loadClasses() {
+  const data = await api('GET', '/classes');
+  state.classes = data.classes;
+  LOCAL.classes = data.classes;
+  populateClassSelects();
+}
+async function loadStudents() {
+  const data = await api('GET', '/students');
+  state.students = data.students;
+  LOCAL.students = data.students;
+  updateSummary(); // refresh cards whenever student list changes
+}
+
+function populateClassSelects() {
+  const cls = state.classes;
+  document.getElementById('att-class').innerHTML = `<option value="all">All students</option>` + cls.map(c=>`<option value="${c}">${c}</option>`).join('');
+  document.getElementById('s-class').innerHTML   = `<option value="">Select class</option>` + cls.map(c=>`<option value="${c}">${c}</option>`).join('');
+  document.getElementById('r-cls').innerHTML     = `<option value="">All classes</option>` + cls.map(c=>`<option value="${c}">${c}</option>`).join('');
+  document.getElementById('h-stu').innerHTML     = `<option value="">All students</option>` + state.students.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+  const tags = document.getElementById('class-tags');
+  tags.innerHTML = cls.length === 0
+    ? '<span style="font-size:13px;color:var(--text3)">No classes yet. Add one above.</span>'
+    : cls.map(c=>`<span class="class-tag">🏫 ${c}<button onclick="deleteClass('${c}')">×</button></span>`).join('');
+}
+
+function showTab(t) {
+  if (['mark', 'students', 'leaves'].includes(t) && !isTeacher()) t = 'history';
+  ['mark','history','students','report','leaves'].forEach((n) => {
+    const tab = document.querySelector(`.tab[data-tab="${n}"]`);
+    if (tab) tab.classList.toggle('active', n===t);
+    document.getElementById('tab-'+n).classList.toggle('active', n===t);
+  });
+  if (t==='mark')     renderMarkPanel();
+  if (t==='history')  loadHistory();
+  if (t==='students') renderStudents();
+  if (t==='report')   loadReport();
+  if (t==='leaves')   renderLeavesTab();
+}
+
+async function renderMarkPanel() {
+  const d   = document.getElementById('att-date').value || today();
+  const cls = document.getElementById('att-class').value;
+  const stus = cls === 'all' ? state.students : state.students.filter(s => s.cls === cls);
+  const grid = document.getElementById('att-grid');
+  if (!stus.length) {
+    grid.innerHTML = `<div class="empty"><div class="empty-icon">🎓</div><div>No students found.<br>Add students in the Students tab.</div></div>`;
+    return;
+  }
+  const existing = {};
+  try { const data = await api('GET', `/attendance?date=${d}`); data.attendance.forEach(a => { existing[a.sid] = a.status; }); } catch(e) {}
+  state.attState = {};
+  stus.forEach(s => { state.attState[s.id] = existing[s.id] || null; });
+  const pcts = {};
+  try { const rep = await api('GET', '/report'); rep.report.forEach(r => { pcts[r.id] = r.attendancePct; }); } catch(e) {}
+  grid.innerHTML = stus.map((s,i) => {
+    const sel = state.attState[s.id];
+    const pct = pcts[s.id];
+    return `<div class="stu-row" style="animation-delay:${i*0.04}s">
+      <div class="avatar" style="${avatarStyle(i)}">${initials(s.name)}</div>
+      <div class="stu-info">
+        <div class="stu-name">${s.name}</div>
+        <div class="stu-meta">${s.roll} · ${s.cls}</div>
+      </div>
+      <div class="att-btns">
+        <button class="att-btn p${sel==='P'?' sel':''}" onclick="setAtt('${s.id}','P',this)" title="Present">P</button>
+        <button class="att-btn a${sel==='A'?' sel':''}" onclick="setAtt('${s.id}','A',this)" title="Absent">A</button>
+        <button class="att-btn l${sel==='L'?' sel':''}" onclick="setAtt('${s.id}','L',this)" title="Late">L</button>
+      </div>
+      <div class="pct ${pctClass(pct)}">${pct !== null && pct !== undefined ? pct+'%' : '—'}</div>
+    </div>`;
+  }).join('');
+}
+
+function setAtt(sid, status, btn) {
+  if (!requireTeacherClient()) return;
+  state.attState[sid] = status;
+  btn.closest('.att-btns').querySelectorAll('.att-btn').forEach(b => b.classList.remove('sel'));
+  btn.classList.add('sel');
+}
+
+async function saveAttendance() {
+  if (!requireTeacherClient()) return;
+  const d = document.getElementById('att-date').value;
+  if (!d) return toast('📅 Select a date first');
+  const records = Object.entries(state.attState).filter(([,s]) => s !== null).map(([sid,status]) => ({ sid, status }));
+  if (!records.length) return toast('⚠️ Mark at least one student');
+  try {
+    await api('POST', '/attendance', { date: d, records });
+    const attData = await api('GET', '/attendance');
+    LOCAL.attendance = attData.attendance;
+    toast(`✅ Saved — ${records.length} records for ${d}`);
+    updateSummary(); // update cards immediately after saving attendance
+  } catch(e) { toast('❌ ' + e.message); }
+}
+
+async function resetAttendance() {
+  if (!requireTeacherClient()) return;
+  const d   = document.getElementById('att-date').value;
+  const cls = document.getElementById('att-class').value;
+  if (!d) return toast('📅 Select a date first');
+  const scope = cls && cls !== 'all' ? `for ${cls} on ${d}` : `for everyone on ${d}`;
+  if (!confirm(`Reset all attendance ${scope}? This can't be undone.`)) return;
+  try {
+    const qs = `date=${d}` + (cls && cls !== 'all' ? `&cls=${encodeURIComponent(cls)}` : '');
+    await api('DELETE', `/attendance?${qs}`);
+    const attData = await api('GET', '/attendance');
+    LOCAL.attendance = attData.attendance;
+    toast(`♻️ Attendance reset ${scope}`);
+    renderMarkPanel();
+    updateSummary();
+  } catch(e) { toast('❌ ' + e.message); }
+}
+
+function updateSummary() {
+  try {
+    const d = today();
+    // Read directly from LOCAL (always in sync after loadLocal)
+    const students = LOCAL.students || [];
+    const todayRecs = (LOCAL.attendance || []).filter(a => a.date === d);
+
+    const p = todayRecs.filter(r => r.status==='P'||r.status==='L').length;
+    const a = todayRecs.filter(r => r.status==='A').length;
+
+    // Calculate average attendance across all students
+    const pcts = students.map(s => {
+      const recs = (LOCAL.attendance || []).filter(x => x.sid === s.id);
+      if (!recs.length) return null;
+      const present = recs.filter(x => x.status==='P'||x.status==='L').length;
+      return Math.round((present / recs.length) * 100);
+    }).filter(x => x !== null);
+
+    const avg = pcts.length ? Math.round(pcts.reduce((a,b)=>a+b,0)/pcts.length) : null;
+
+    animateNum('sc-total', students.length);
+    animateNum('sc-p', p);
+    animateNum('sc-a', a);
+    document.getElementById('sc-avg').textContent = avg !== null ? avg + '%' : '—';
+  } catch(e) {
+    console.warn('updateSummary error:', e);
+  }
+}
+
+function animateNum(id, target) {
+  const el = document.getElementById(id);
+  const start = parseInt(el.textContent) || 0;
+  const dur = 600; const begin = performance.now();
+  function step(now) {
+    const t = Math.min((now - begin) / dur, 1);
+    const ease = 1 - Math.pow(1 - t, 3);
+    el.textContent = Math.round(start + (target - start) * ease);
+    if (t < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+async function loadHistory() {
+  const from = document.getElementById('h-from').value;
+  const to   = document.getElementById('h-to').value;
+  const sid  = document.getElementById('h-stu').value;
+  let qs = [];
+  if (from) qs.push(`from=${from}`);
+  if (to)   qs.push(`to=${to}`);
+  if (sid)  qs.push(`sid=${sid}`);
+  try {
+    const data = await api('GET', '/attendance' + (qs.length ? '?'+qs.join('&') : ''));
+    const stuMap = {};
+    state.students.forEach(s => stuMap[s.id] = s);
+    const tbody = document.getElementById('hist-body');
+    if (!data.attendance.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="empty">No records found for the selected filter</td></tr>';
+      return;
+    }
+    tbody.innerHTML = data.attendance.map(r => {
+      const s = stuMap[r.sid] || { name: 'Unknown', roll: '—', cls: '—' };
+      const label = r.status==='P'?'Present':r.status==='A'?'Absent':r.status==='L'?'Late':r.status==='E'?'Earned Leave':'Calc. Leave';
+      return `<tr><td>${r.date}</td><td><strong>${s.name}</strong></td><td>${s.roll}</td><td>${s.cls}</td><td><span class="badge ${r.status}">${label}</span></td></tr>`;
+    }).join('');
+  } catch(e) { toast('❌ ' + e.message); }
+}
+
+async function renderStudents() {
+  if (!requireTeacherClient()) return;
+  await loadClasses();
+  await loadStudents();
+  const list = document.getElementById('stu-list');
+  if (!state.students.length) {
+    list.innerHTML = `<div class="empty"><div class="empty-icon">🎓</div><div>No students yet.<br>Add your first student above.</div></div>`;
+    return;
+  }
+  list.innerHTML = state.students.map((s,i) => `
+    <div class="stu-row" style="animation-delay:${i*0.04}s">
+      <div class="avatar" style="${avatarStyle(i)}">${initials(s.name)}</div>
+      <div class="stu-info">
+        <div class="stu-name">${s.name}</div>
+        <div class="stu-meta">${s.roll} · ${s.cls}</div>
+      </div>
+      <button class="btn danger" onclick="deleteStudent('${s.id}')">🗑 Remove</button>
+    </div>`).join('');
+}
+
+async function addStudent() {
+  if (!requireTeacherClient()) return;
+  const name  = document.getElementById('s-name').value.trim();
+  const roll  = document.getElementById('s-roll').value.trim();
+  const cls   = document.getElementById('s-class').value;
+  const email = document.getElementById('s-email').value.trim().toLowerCase();
+  if (!name || !roll) return toast('⚠️ Enter name and roll number');
+  if (!cls) return toast('⚠️ Select a class');
+  try {
+    await api('POST', '/students', { name, roll, cls, email: email || null });
+    document.getElementById('s-name').value = '';
+    document.getElementById('s-roll').value = '';
+    document.getElementById('s-email').value = '';
+    await loadStudents();
+    renderStudents();
+    updateSummary();
+    toast(`✅ ${name} added successfully`);
+  } catch(e) { toast('❌ ' + e.message); }
+}
+
+async function deleteStudent(id) {
+  if (!requireTeacherClient()) return;
+  if (!confirm('Remove this student and all their records?')) return;
+  try {
+    await api('DELETE', `/students/${id}`);
+    await loadStudents();
+    renderStudents();
+    updateSummary();
+    toast('🗑 Student removed');
+  } catch(e) { toast('❌ ' + e.message); }
+}
+
+async function addClass() {
+  if (!requireTeacherClient()) return;
+  const name = document.getElementById('cls-name').value.trim();
+  if (!name) return toast('⚠️ Enter class name');
+  try {
+    await api('POST', '/classes', { name });
+    document.getElementById('cls-name').value = '';
+    await loadClasses();
+    toast(`✅ Class "${name}" added`);
+  } catch(e) { toast('❌ ' + e.message); }
+}
+
+async function deleteClass(name) {
+  if (!requireTeacherClient()) return;
+  try {
+    await api('DELETE', `/classes/${encodeURIComponent(name)}`);
+    await loadClasses();
+    toast('🗑 Class removed');
+  } catch(e) { toast('❌ ' + e.message); }
+}
+
+async function loadReport() {
+  const cls = document.getElementById('r-cls').value;
+  try {
+    const data = await api('GET', '/report' + (cls ? `?cls=${encodeURIComponent(cls)}` : ''));
+    const el = document.getElementById('report-list');
+    if (!data.report.length) {
+      el.innerHTML = `<div class="empty"><div class="empty-icon">📊</div><div>No data yet. Start marking attendance first.</div></div>`;
+      return;
+    }
+    el.innerHTML = data.report.map((r, i) => {
+      const barColor = r.attendancePct===null?'#d1d5db':r.attendancePct>=75?'#16a34a':r.attendancePct>=50?'#d97706':'#dc2626';
+      const pct = r.attendancePct;
+      return `<div style="display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--border);transition:background 0.15s" onmouseenter="this.style.background='#f5f3ff'" onmouseleave="this.style.background=''">
+        <div class="avatar" style="${avatarStyle(i)}">${initials(r.name)}</div>
+        <div style="flex:1">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:14px;font-weight:600;color:var(--text)">${r.name}</span>
+            <span class="pct ${pctClass(pct)}" style="font-size:15px;font-weight:700">${pct!==null?pct+'%':'No data'}</span>
+          </div>
+          <div style="font-size:12px;color:var(--text2);margin:2px 0">${r.roll} · ${r.cls} · <span style="color:var(--green)">✓${r.present}</span> · <span style="color:var(--red)">✗${r.absent}</span> · <span style="color:var(--amber)">⏱${r.late}</span> · ${r.totalSessions} sessions</div>
+          <div class="bar-bg"><div class="bar-fill" style="width:0%;background:${barColor}" data-target="${pct||0}"></div></div>
+          ${r.status==='low'?'<div class="alert-low">⚠️ Below 75% — needs attention</div>':''}
+        </div>
+      </div>`;
+    }).join('');
+    // Animate bars after render
+    setTimeout(() => {
+      document.querySelectorAll('.bar-fill').forEach(b => {
+        b.style.width = b.dataset.target + '%';
+      });
+    }, 80);
+  } catch(e) { toast('❌ ' + e.message); }
+}
+
+/* ─── LEAVES ─── */
+
+// LOCAL.leaves structure per student:
+// { el: 10, cl: 5, elUsed: 2, clUsed: 1 }
+// elUsed/clUsed track how many times the button was clicked
+
+function getLeave(sid) {
+  if (!LOCAL.leaves) LOCAL.leaves = {};
+  return LOCAL.leaves[sid] || { el: 0, cl: 0, elUsed: 0, clUsed: 0 };
+}
+
+function renderLeavesTab() {
+  if (!requireTeacherClient()) return;
+  // populate class filter
+  const lvCls = document.getElementById('lv-cls');
+  lvCls.innerHTML = '<option value="">All students</option>' +
+    state.classes.map(c => `<option value="${c}">${c}</option>`).join('');
+
+  const cls = lvCls.value;
+  const stus = cls ? state.students.filter(s => s.cls === cls) : state.students;
+
+  if (!stus.length) {
+    document.getElementById('leaves-set-grid').innerHTML =
+      '<div class="empty"><div class="empty-icon">🏖️</div>No students found. Add students first.</div>';
+    document.getElementById('leaves-use-grid').innerHTML = '';
+    document.getElementById('leave-summary').innerHTML = '';
+    return;
+  }
+
+  renderSetGrid(stus);
+  renderUseGrid(stus);
+  renderLeaveSummary(stus);
+}
+
+function renderSetGrid(stus) {
+  const grid = document.getElementById('leaves-set-grid');
+  grid.innerHTML = stus.map((s, i) => {
+    const lv = getLeave(s.id);
+    return `<div class="stu-row" style="animation-delay:${i*0.04}s">
+      <div class="avatar" style="${avatarStyle(i)}">${initials(s.name)}</div>
+      <div class="stu-info">
+        <div class="stu-name">${s.name}</div>
+        <div class="stu-meta">${s.roll} · ${s.cls}</div>
+      </div>
+      <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
+        <div style="display:flex;flex-direction:column;gap:4px;align-items:center">
+          <label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#38bdf8">Total EL</label>
+          <input type="number" min="0" max="365" value="${lv.el}"
+            id="el-${s.id}"
+            style="width:72px;text-align:center;background:rgba(56,189,248,0.1);border-color:rgba(56,189,248,0.4);color:#38bdf8;font-weight:700;font-size:16px">
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;align-items:center">
+          <label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#c084fc">Total CL</label>
+          <input type="number" min="0" max="365" value="${lv.cl}"
+            id="cl-${s.id}"
+            style="width:72px;text-align:center;background:rgba(168,85,247,0.1);border-color:rgba(168,85,247,0.4);color:#c084fc;font-weight:700;font-size:16px">
+        </div>
+        <div style="font-size:12px;color:var(--text2)">
+          Total: <strong style="color:var(--text)">${lv.el + lv.cl} days</strong>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderUseGrid(stus) {
+  const grid = document.getElementById('leaves-use-grid');
+  grid.innerHTML = stus.map((s, i) => {
+    const lv = getLeave(s.id);
+    const elUsed = lv.elUsed || 0;
+    const clUsed = lv.clUsed || 0;
+    const elLeft = Math.max(0, lv.el - elUsed);
+    const clLeft = Math.max(0, lv.cl - clUsed);
+    const noEL   = lv.el === 0;
+    const noCL   = lv.cl === 0;
+
+    // EL button — always clickable if total > 0 and balance left
+    const elCanClick = lv.el > 0 && elLeft > 0;
+    const clCanClick = lv.cl > 0 && clLeft > 0;
+
+    const elBtnStyle = `width:52px;height:52px;border-radius:50%;font-weight:800;font-size:13px;cursor:${elCanClick?'pointer':'not-allowed'};transition:all 0.2s cubic-bezier(0.34,1.56,0.64,1);border:2px solid ${elCanClick?'#38bdf8':'rgba(100,100,100,0.3)'};background:${elCanClick?'rgba(56,189,248,0.15)':'rgba(60,60,60,0.2)'};color:${elCanClick?'#38bdf8':'#555'};`;
+    const clBtnStyle = `width:52px;height:52px;border-radius:50%;font-weight:800;font-size:13px;cursor:${clCanClick?'pointer':'not-allowed'};transition:all 0.2s cubic-bezier(0.34,1.56,0.64,1);border:2px solid ${clCanClick?'#c084fc':'rgba(100,100,100,0.3)'};background:${clCanClick?'rgba(192,132,252,0.15)':'rgba(60,60,60,0.2)'};color:${clCanClick?'#c084fc':'#555'};`;
+    const undoStyle  = `width:30px;height:30px;border-radius:50%;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.05);color:var(--text2);font-size:14px;cursor:pointer;transition:all 0.18s;`;
+
+    return `<div class="stu-row" id="use-row-${s.id}" style="animation-delay:${i*0.04}s;flex-wrap:wrap;gap:12px">
+      <div class="avatar" style="${avatarStyle(i)}">${initials(s.name)}</div>
+      <div class="stu-info" style="min-width:120px">
+        <div class="stu-name">${s.name}</div>
+        <div class="stu-meta">${s.roll} · ${s.cls}</div>
+        ${noEL && noCL ? '<div style="font-size:11px;color:#f87171;margin-top:4px">⚠️ Set leave totals in Step 1 first</div>' : ''}
+      </div>
+
+      <div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap;flex:1">
+
+        <!-- EL -->
+        <div style="display:flex;flex-direction:column;align-items:center;gap:5px">
+          <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:#38bdf8">Earned Leave</span>
+          <div style="display:flex;align-items:center;gap:10px">
+            <button
+              style="${elBtnStyle}"
+              onclick="${elCanClick ? `useLeave('${s.id}','el')` : `toast('⚠️ ${noEL ? 'Set EL total in Step 1 first' : 'No Earned Leaves remaining'}')`}"
+              title="${noEL ? 'Set total in Step 1' : elCanClick ? 'Click to use 1 EL' : 'No EL left'}">EL</button>
+            <div style="text-align:center;min-width:36px">
+              <div style="font-size:26px;font-weight:800;color:${elLeft>0?'#38bdf8':'#f87171'};line-height:1">${elLeft}</div>
+              <div style="font-size:10px;color:var(--text3)">${noEL?'not set':`of ${lv.el}`}</div>
+            </div>
+            <button style="${undoStyle}" onclick="undoLeave('${s.id}','el')"
+              title="Undo last EL">↩</button>
+          </div>
+          <div style="font-size:11px;color:var(--text3)">Used: <strong style="color:${elUsed>0?'#fbbf24':'var(--text3)'}">${elUsed}</strong></div>
+        </div>
+
+        <div style="width:1px;height:55px;background:var(--border);align-self:center"></div>
+
+        <!-- CL -->
+        <div style="display:flex;flex-direction:column;align-items:center;gap:5px">
+          <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:#c084fc">Casual Leave</span>
+          <div style="display:flex;align-items:center;gap:10px">
+            <button
+              style="${clBtnStyle}"
+              onclick="${clCanClick ? `useLeave('${s.id}','cl')` : `toast('⚠️ ${noCL ? 'Set CL total in Step 1 first' : 'No Casual Leaves remaining'}')`}"
+              title="${noCL ? 'Set total in Step 1' : clCanClick ? 'Click to use 1 CL' : 'No CL left'}">CL</button>
+            <div style="text-align:center;min-width:36px">
+              <div style="font-size:26px;font-weight:800;color:${clLeft>0?'#c084fc':'#f87171'};line-height:1">${clLeft}</div>
+              <div style="font-size:10px;color:var(--text3)">${noCL?'not set':`of ${lv.cl}`}</div>
+            </div>
+            <button style="${undoStyle}" onclick="undoLeave('${s.id}','cl')"
+              title="Undo last CL">↩</button>
+          </div>
+          <div style="font-size:11px;color:var(--text3)">Used: <strong style="color:${clUsed>0?'#fbbf24':'var(--text3)'}">${clUsed}</strong></div>
+        </div>
+
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function useLeave(sid, type) {
+  if (!requireTeacherClient()) return;
+  if (!LOCAL.leaves) LOCAL.leaves = {};
+  const lv = getLeave(sid);
+  let newVal;
+  if (type === 'el') {
+    if ((lv.elUsed || 0) >= lv.el) { toast('⚠️ No Earned Leaves remaining for this student'); return; }
+    newVal = (lv.elUsed || 0) + 1;
+    lv.elUsed = newVal;
+  } else {
+    if ((lv.clUsed || 0) >= lv.cl) { toast('⚠️ No Casual Leaves remaining for this student'); return; }
+    newVal = (lv.clUsed || 0) + 1;
+    lv.clUsed = newVal;
+  }
+  
+  try {
+    await syncLeaveUse(sid, type, newVal);
+    LOCAL.leaves[sid] = lv;
+    saveLocal();
+    const stus = state.students;
+    renderUseGrid(stus);
+    renderLeaveSummary(stus);
+    updateSummary();
+    const typeLabel = type === 'el' ? 'Earned Leave' : 'Casual Leave';
+    const left = type === 'el' ? lv.el - lv.elUsed : lv.cl - lv.clUsed;
+    toast(`✅ ${typeLabel} used — ${left} remaining`);
+  } catch(e) { toast('❌ Failed to save leave: ' + e.message); }
+}
+
+async function undoLeave(sid, type) {
+  if (!requireTeacherClient()) return;
+  if (!LOCAL.leaves) LOCAL.leaves = {};
+  const lv = getLeave(sid);
+  let newVal;
+  if (type === 'el') {
+    if ((lv.elUsed || 0) === 0) return;
+    newVal = lv.elUsed - 1;
+    lv.elUsed = newVal;
+  } else {
+    if ((lv.clUsed || 0) === 0) return;
+    newVal = lv.clUsed - 1;
+    lv.clUsed = newVal;
+  }
+  
+  try {
+    await syncLeaveUse(sid, type, newVal);
+    LOCAL.leaves[sid] = lv;
+    saveLocal();
+    const stus = state.students;
+    renderUseGrid(stus);
+    renderLeaveSummary(stus);
+    updateSummary();
+    toast('↩ Leave undone');
+  } catch(e) { toast('❌ Undo failed: ' + e.message); }
+}
+
+async function saveAllLeaves() {
+  if (!requireTeacherClient()) return;
+  const inputs = document.querySelectorAll('[id^="el-"]');
+  if (!inputs.length) { toast('⚠️ No students to save'); return; }
+  
+  let count = 0;
+  for (const inp of inputs) {
+    const sid = inp.id.replace('el-', '');
+    if (!state.students.find(s => s.id === sid)) continue;
+    
+    const el_total = parseInt(inp.value) || 0;
+    const clEl = document.getElementById('cl-' + sid);
+    const cl_total = clEl ? parseInt(clEl.value) || 0 : 0;
+    
+    const existing = getLeave(sid);
+    const body = { 
+      sid, 
+      el_total, 
+      cl_total, 
+      el_used: existing.elUsed || 0, 
+      cl_used: existing.clUsed || 0 
+    };
+
+    try {
+      await api('POST', '/leaves', body);
+      // Update local state too
+      LOCAL.leaves[sid] = { el: el_total, cl: cl_total, elUsed: body.el_used, clUsed: body.cl_used };
+      count++;
+    } catch(e) { console.error('Save leave failed for', sid, e); }
+  }
+  
+  saveLocal();
+  toast(`✅ Leave totals saved for ${count} students`);
+  const cls = document.getElementById('lv-cls').value;
+  const stus = cls ? state.students.filter(s => s.cls === cls) : state.students;
+  renderUseGrid(stus);
+  renderLeaveSummary(stus);
+}
+
+// Helper to update specific student leave use on backend
+async function syncLeaveUse(sid, type, val) {
+  if (USE_LOCAL) return;
+  const lv = getLeave(sid);
+  const body = {
+    sid,
+    el_total: lv.el,
+    cl_total: lv.cl,
+    el_used: type === 'el' ? val : lv.elUsed,
+    cl_used: type === 'cl' ? val : lv.clUsed
+  };
+  await api('POST', '/leaves', body);
+}
+
+function renderLeaveSummary(stus) {
+  if (!stus) {
+    const cls = document.getElementById('lv-cls')?.value || '';
+    stus = cls ? state.students.filter(s => s.cls === cls) : state.students;
+  }
+  const el = document.getElementById('leave-summary');
+  if (!stus || !stus.length) { el.innerHTML = '<div class="empty">No data yet</div>'; return; }
+
+  el.innerHTML = stus.map((s, i) => {
+    const lv = getLeave(s.id);
+    const elUsed = lv.elUsed || 0;
+    const clUsed = lv.clUsed || 0;
+    const elLeft = Math.max(0, lv.el - elUsed);
+    const clLeft = Math.max(0, lv.cl - clUsed);
+    const elPct  = lv.el > 0 ? Math.round((elLeft / lv.el) * 100) : 100;
+    const clPct  = lv.cl > 0 ? Math.round((clLeft / lv.cl) * 100) : 100;
+
+    return `<div style="padding:14px 6px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px;border-radius:8px;transition:background 0.15s"
+      onmouseenter="this.style.background='rgba(139,92,246,0.07)'"
+      onmouseleave="this.style.background=''">
+      <div class="avatar" style="${avatarStyle(i)}">${initials(s.name)}</div>
+      <div style="flex:1">
+        <div style="font-size:14px;font-weight:600;margin-bottom:8px">${s.name}
+          <span style="font-size:12px;color:var(--text2);font-weight:400"> · ${s.roll} · ${s.cls}</span>
+        </div>
+        <div style="display:flex;gap:24px;flex-wrap:wrap">
+          <!-- EL summary -->
+          <div style="flex:1;min-width:140px">
+            <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+              <span style="font-size:11px;font-weight:700;color:#38bdf8;text-transform:uppercase;letter-spacing:0.06em">Earned Leave</span>
+              <span style="font-size:12px;font-weight:700;color:${elLeft>0?'#38bdf8':'#f87171'}">${elLeft} / ${lv.el}</span>
+            </div>
+            <div class="bar-bg"><div class="bar-fill" style="width:${elPct}%;background:${elLeft>0?'#38bdf8':'#f87171'};box-shadow:0 0 8px rgba(56,189,248,0.4)"></div></div>
+            <div style="font-size:11px;color:var(--text3);margin-top:3px">Used ${elUsed} · ${elLeft} remaining</div>
+          </div>
+          <!-- CL summary -->
+          <div style="flex:1;min-width:140px">
+            <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+              <span style="font-size:11px;font-weight:700;color:#c084fc;text-transform:uppercase;letter-spacing:0.06em">Casual Leave</span>
+              <span style="font-size:12px;font-weight:700;color:${clLeft>0?'#c084fc':'#f87171'}">${clLeft} / ${lv.cl}</span>
+            </div>
+            <div class="bar-bg"><div class="bar-fill" style="width:${clPct}%;background:${clLeft>0?'#c084fc':'#f87171'};box-shadow:0 0 8px rgba(192,132,252,0.4)"></div></div>
+            <div style="font-size:11px;color:var(--text3);margin-top:3px">Used ${clUsed} · ${clLeft} remaining</div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+document.getElementById('att-date').addEventListener('change', renderMarkPanel);
+document.getElementById('att-class').addEventListener('change', renderMarkPanel);
+init();
+</script>
+</body>
+</html>
