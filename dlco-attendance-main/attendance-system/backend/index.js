@@ -103,6 +103,39 @@ app.post('/api/auth/logout', requireAuth, (_req, res) => {
   res.json({ message: 'Logged out successfully' });
 });
 
+// POST /api/auth/forgot-password — public: send a reset link to the given email
+app.post('/api/auth/forgot-password', async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: 'email is required' });
+
+  const redirectTo = `${req.protocol}://${req.get('host')}`;
+  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+
+  // Always return success even if the email isn't registered — avoids leaking
+  // which emails have accounts.
+  if (error) console.warn('resetPasswordForEmail:', error.message);
+  res.json({ message: 'If that email is registered, a reset link has been sent.' });
+});
+
+// POST /api/auth/reset-password — public: complete the reset using the token from the emailed link
+app.post('/api/auth/reset-password', async (req, res) => {
+  const { access_token, refresh_token, password } = req.body;
+  if (!access_token || !password) {
+    return res.status(400).json({ error: 'access_token and password are required' });
+  }
+
+  const { error: sessionError } = await supabase.auth.setSession({
+    access_token,
+    refresh_token: refresh_token || ''
+  });
+  if (sessionError) return res.status(400).json({ error: 'Reset link is invalid or expired' });
+
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) return res.status(400).json({ error: error.message });
+
+  res.json({ message: 'Password updated. You can now log in.' });
+});
+
 app.get('/api/auth/me', requireAuth, (req, res) => {
   res.json({ user: req.user });
 });
