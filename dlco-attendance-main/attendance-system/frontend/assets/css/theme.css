@@ -1,0 +1,66 @@
+/* ─────────────────────────────────────────────
+   Design tokens — the single source for colors,
+   radii, shadows and type. Everything else reads
+   from these variables.
+   ───────────────────────────────────────────── */
+:root {
+  /* Brand */
+  --primary: #6D28D9;
+  --primary-hover: #5B21B6;
+  --primary-light: #EDE9FE;
+  --primary-soft: #DDD6FE;
+
+  /* Surfaces & text */
+  --bg: #F7F6F3;
+  --surface: #FFFFFF;
+  --surface-2: #FAFAF8;
+  --surface-3: #F3F2EE;
+  --border: #ECEAE4;
+  --border-strong: #DEDBD3;
+  --text: #1A1A1A;
+  --text-2: #3F3F46;
+  --muted: #6B7280;
+  --muted-2: #9CA3AF;
+
+  /* Pastel stat cards */
+  --lavender: #E9E3FB;
+  --peach: #FCE3CC;
+  --mint: #DDEFE3;
+  --pink: #F9DDE3;
+
+  /* Status */
+  --ok-bg: #E7F6EC;   --ok-fg: #15803D;   --ok-bd: #BBE5C8;
+  --late-bg: #FEF3E2; --late-fg: #B45309; --late-bd: #F8D9A8;
+  --leave-bg: #F1ECFE; --leave-fg: #6D28D9; --leave-bd: #D9CCFB;
+  --bad-bg: #FDECEE;  --bad-fg: #BE123C;  --bad-bd: #F6C3CC;
+  --none-bg: #F3F4F6; --none-fg: #6B7280; --none-bd: #E5E7EB;
+
+  /* Radii */
+  --r-xs: 8px;
+  --r-sm: 10px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-xl: 20px;
+  --r-2xl: 24px;
+  --r-pill: 999px;
+
+  /* Shadows (very soft) */
+  --shadow-xs: 0 1px 2px rgba(26, 26, 26, 0.04);
+  --shadow-sm: 0 1px 3px rgba(26, 26, 26, 0.05), 0 1px 2px rgba(26, 26, 26, 0.03);
+  --shadow-md: 0 6px 20px rgba(26, 26, 26, 0.06), 0 2px 6px rgba(26, 26, 26, 0.04);
+  --shadow-lg: 0 18px 48px rgba(26, 26, 26, 0.10), 0 4px 12px rgba(26, 26, 26, 0.05);
+  --ring: 0 0 0 3px rgba(109, 40, 217, 0.16);
+
+  /* Type */
+  --font: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-auth: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /* Motion */
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --t-fast: 120ms;
+  --t: 200ms;
+
+  /* Layout */
+  --nav-h: 72px;
+  --content-max: 1240px;
+}
