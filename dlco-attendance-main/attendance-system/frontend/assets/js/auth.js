@@ -159,7 +159,10 @@ export function renderAuth(root, { onAuthed, onResetDone, mode: initialMode = 's
   }
 
   function formMarkup() {
-    const banner = state.banner ? html`<div class="a-banner ${state.banner.type}" role="alert">${Icon(state.banner.type === 'ok' ? 'circle-check' : 'circle-alert')}<span>${state.banner.text}</span></div>` : '';
+    const resend = state.banner?.resend
+      ? html` <button type="button" class="a-link" data-resend style="display:inline;padding:0;font-weight:600;text-decoration:underline">Resend email</button>`
+      : '';
+    const banner = state.banner ? html`<div class="a-banner ${state.banner.type}" role="alert">${Icon(state.banner.type === 'ok' ? 'circle-check' : 'circle-alert')}<span>${state.banner.text}${resend}</span></div>` : '';
     const label = { signup: 'Create an account', signin: 'Sign in', forgot: 'Send reset link', reset: 'Update password' }[state.mode];
     const submit = html`<button class="a-primary" type="submit" ${state.busy ? raw('disabled') : ''}>${state.busy ? raw('<span class="spinner"></span>') : ''}${label}</button>`;
     const back = html`<div class="a-row-end" style="justify-content:center;margin-top:4px"><button type="button" class="a-link" data-back>← Back to sign in</button></div>`;
@@ -325,7 +328,7 @@ export function renderAuth(root, { onAuthed, onResetDone, mode: initialMode = 's
         });
         if (!data.access_token) {
           state.busy = false; state.mode = 'signin'; state.values.password = '';
-          state.banner = { type: 'ok', text: data.message || 'Account created. Confirm your email, then sign in.' };
+          state.banner = { type: 'ok', text: data.message || 'Account created. Confirm your email, then sign in.', resend: true };
           state.errors = {}; state.touched = {};
           paint({ animate: true, dir: 14 });
           return;
@@ -338,9 +341,30 @@ export function renderAuth(root, { onAuthed, onResetDone, mode: initialMode = 's
       onAuthed?.();
     } catch (e) {
       state.busy = false;
-      state.banner = { type: 'err', text: isNetworkError(e) ? 'Can’t reach the server right now. Check your connection and try again.' : e.message };
+      state.banner = {
+        type: 'err',
+        text: isNetworkError(e) ? 'Can’t reach the server right now. Check your connection and try again.' : e.message,
+        resend: e.code === 'email_not_confirmed',
+      };
       paint();
     }
+  }
+
+  async function resendConfirmation() {
+    const email = state.values.email.trim().toLowerCase();
+    if (!EMAIL_RE.test(email)) {
+      state.banner = { type: 'err', text: 'Enter your email above, then tap Resend email.' };
+      return paint();
+    }
+    if (state.busy) return;
+    state.busy = true; paint();
+    try {
+      const data = await api('POST', '/auth/resend-confirmation', { email });
+      state.banner = { type: 'ok', text: data.message };
+    } catch (e) {
+      state.banner = { type: 'err', text: isNetworkError(e) ? 'Can’t reach the server right now. Try again.' : e.message, resend: true };
+    }
+    state.busy = false; paint();
   }
 
   /* events */
@@ -349,6 +373,7 @@ export function renderAuth(root, { onAuthed, onResetDone, mode: initialMode = 's
     const modeBtn = t.closest('[data-mode-btn]');
     if (modeBtn) return setMode(modeBtn.dataset.modeBtn);
     if (t.closest('[data-eye]')) { state.showPw = !state.showPw; paint(); $('[name="password"]', body)?.focus(); return; }
+    if (t.closest('[data-resend]')) return resendConfirmation();
     if (t.closest('[data-forgot]')) return setMode('forgot');
     if (t.closest('[data-back]')) return setMode('signin');
     if (t.closest('[data-google]')) { state.banner = { type: 'err', text: 'Google sign-in isn’t configured for this app yet. Use email and password.' }; paint(); return; }

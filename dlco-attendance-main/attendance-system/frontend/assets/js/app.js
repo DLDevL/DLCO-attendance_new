@@ -107,9 +107,43 @@ function showReset(resetTokens) {
   });
 }
 
+/* Supabase sign-up confirmation links land as #access_token=…&type=signup,
+   or #error=…&error_description=… when the link is expired or already used. */
+function readConfirmationLink() {
+  const h = new URLSearchParams(location.hash.replace(/^#/, ''));
+  let notice = null;
+  if (h.get('type') === 'signup' && h.get('access_token')) {
+    notice = { type: 'ok', text: 'Your email is verified. You can sign in now.' };
+  } else if (h.get('error')) {
+    const expired = h.get('error_code') === 'otp_expired';
+    notice = {
+      type: 'err',
+      text: expired
+        ? 'That confirmation link has expired or was already used. Enter your email and tap Resend email for a new one.'
+        : (h.get('error_description') || 'That link didn’t work.'),
+      resend: expired,
+    };
+  }
+  if (notice) history.replaceState(null, '', location.pathname); // keep tokens out of the address bar
+  return notice;
+}
+
+function showSignIn(notice) {
+  document.title = 'Sign in · Attendance Register';
+  renderAuth(fresh(), {
+    mode: 'signin',
+    notice,
+    onAuthed: () => { location.hash = `#/${homeFor(getAuth().user.role)}`; boot(); },
+  });
+}
+
 const recovery = readRecoveryLink();
+const confirmation = !recovery && readConfirmationLink();
 if (recovery) {
   showReset(recovery);
+} else if (confirmation) {
+  clearAuth();
+  showSignIn(confirmation);
 } else {
   consumeDemoParam();
   boot();
