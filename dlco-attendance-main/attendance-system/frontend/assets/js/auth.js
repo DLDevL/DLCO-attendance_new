@@ -326,14 +326,12 @@ export function renderAuth(root, { onAuthed, onResetDone, mode: initialMode = 's
           firstName: v.firstName.trim(), lastName: v.lastName.trim(), title: v.role,
           phone: v.phone ? `${COUNTRIES.find((x) => x.code === v.country).dial} ${v.phone.trim()}` : '',
         });
-        if (!data.access_token) {
-          state.busy = false; state.mode = 'signin'; state.values.password = '';
-          state.banner = { type: 'ok', text: data.message || 'Account created. Confirm your email, then sign in.', resend: true };
-          state.errors = {}; state.touched = {};
-          paint({ animate: true, dir: 14 });
-          return;
-        }
-        saveAuth({ token: data.access_token, user: data.user });
+        // Signing up never logs you in: verify the email, then sign in with your credentials.
+        state.busy = false; state.mode = 'signin'; state.values.password = '';
+        state.banner = { type: 'ok', text: data.message || 'Account created. Confirm your email, then sign in.', resend: true };
+        state.errors = {}; state.touched = {};
+        paint({ animate: true, dir: 14 });
+        return;
       } else {
         const data = await api('POST', '/auth/login', { email, password: v.password });
         saveAuth({ token: data.access_token, user: data.user });

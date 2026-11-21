@@ -38,6 +38,9 @@ async function requireAuth(req, res, next) {
   if (error || !data.user) {
     return res.status(401).json({ error: 'Invalid or expired session' });
   }
+  if (!data.user.email_confirmed_at) {
+    return res.status(403).json({ error: 'Login required: verify your email first, then sign in again.' });
+  }
 
   req.user = userPayload(data.user);
   next();
@@ -100,11 +103,15 @@ app.post('/api/auth/signup', async (req, res) => {
     return res.status(409).json({ error: 'An account with this email already exists. Sign in instead.' });
   }
 
+  // A session here means "Confirm email" is switched OFF in Supabase. Never hand it
+  // out: signing up must not log anyone in. They verify by email, then sign in manually.
+  if (data.session) {
+    console.warn('SECURITY: Supabase returned a session on sign-up — turn ON "Confirm email" in Supabase → Authentication → Providers → Email.');
+    await supabase.auth.signOut().catch(() => {});
+  }
+
   res.status(201).json({
-    message: data.session ? 'Signup successful' : `We sent a confirmation link to ${email}. Open it to verify your account, then sign in.`,
-    access_token: data.session?.access_token || null,
-    refresh_token: data.session?.refresh_token || null,
-    user: data.user ? userPayload(data.user) : null
+    message: `We sent a confirmation link to ${email}. Open it to verify your account, then sign in.`
   });
 });
 
@@ -124,6 +131,15 @@ app.post('/api/auth/login', async (req, res) => {
       });
     }
     return res.status(401).json({ error: error.message });
+  }
+
+  // Double-check on our side too: no verified email, no login.
+  if (!data.user.email_confirmed_at) {
+    await supabase.auth.signOut().catch(() => {});
+    return res.status(403).json({
+      error: 'Please verify your email first. Open the confirmation link we sent you, then sign in.',
+      code: 'email_not_confirmed'
+    });
   }
 
   res.json({
