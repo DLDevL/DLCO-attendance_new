@@ -212,7 +212,7 @@ export default async function overview(root, ctx) {
     return html`
       <p class="section-label">${today.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })} · share of students present each day</p>
       <div class="cal">${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => html`<div class="cal-dow">${d}</div>`)}${cells}</div>
-      <div class="legend"><span><i style="background:#BBE5C8"></i>90%+</span><span><i style="background:#F8D9A8"></i>80–89%</span><span><i style="background:#F6C3CC"></i>Below 80%</span><span><i style="background:var(--surface-3)"></i>No data</span></div>`;
+      <div class="legend"><span><i style="background:var(--lv-hi-bd)"></i>90%+</span><span><i style="background:var(--lv-mid-bd)"></i>80–89%</span><span><i style="background:var(--lv-lo-bd)"></i>Below 80%</span><span><i style="background:var(--surface-3)"></i>No data</span></div>`;
   }
 
   function openStudent(id) {

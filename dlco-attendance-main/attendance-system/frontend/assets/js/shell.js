@@ -9,6 +9,16 @@ import { getAuth, isTeacher } from './core/api.js';
 import { isMock, getSource } from './data/services.js';
 import { Avatar, Icon } from './components.js';
 import { getProfile } from './auth.js';
+import { getTheme, toggleTheme } from './core/theme.js';
+
+/** Sun while the light theme is on, crescent moon while the dark theme is on. */
+function paintThemeToggle(btn, animate = false) {
+  const dark = getTheme() === 'dark';
+  btn.setAttribute('aria-label', dark ? 'Switch to light theme' : 'Switch to dark theme');
+  btn.title = dark ? 'Dark theme · switch to light' : 'Light theme · switch to dark';
+  mount(btn, Icon(dark ? 'moon' : 'sun'));
+  if (animate) { btn.classList.remove('spin'); void btn.offsetWidth; btn.classList.add('spin'); }
+}
 
 export const APP_NAME = 'Attendance Register';
 
@@ -87,6 +97,7 @@ export function startShell(root, { onLogout }) {
         <nav class="nav-tabs" aria-label="Primary">${tabs.map((t) => html`<a class="nav-tab" href="#/${t.id}" data-nav="${t.id}">${t.label}</a>`)}</nav>
         <div class="nav-right">
           ${isMock() ? html`<span class="demo-badge" title="Showing generated demo data">Demo data</span>` : getSource() === 'local' ? html`<span class="demo-badge" title="Backend unreachable — using this browser's saved data">Offline data</span>` : ''}
+          <button class="icon-btn theme-toggle" data-theme-toggle></button>
           <div class="menu-wrap">
             <button class="icon-btn" data-menu="notif" aria-label="Notifications" aria-expanded="false" aria-haspopup="true">${Icon('bell')}<span class="dot-unread" data-unread></span></button>
             <div class="menu" data-menu-panel="notif" style="min-width:300px">
@@ -118,6 +129,7 @@ export function startShell(root, { onLogout }) {
   `);
 
   const main = $('#page', root);
+  paintThemeToggle($('[data-theme-toggle]', root));
   const drawer = $('.drawer', root);
   const backdrop = $('.drawer-backdrop', root);
 
@@ -148,6 +160,8 @@ export function startShell(root, { onLogout }) {
     if (e.target.closest('[data-drawer-close]')) setDrawer(false);
     if (e.target.closest('.drawer .nav-tab') || e.target.closest('.menu a')) { setDrawer(false); closeMenus(); }
     if (e.target.closest('[data-logout]')) { closeMenus(); onLogout(); }
+    const tt = e.target.closest('[data-theme-toggle]');
+    if (tt) { toggleTheme(); paintThemeToggle(tt, true); }
   };
   const onKey = (e) => { if (e.key === 'Escape') { closeMenus(); setDrawer(false); } };
   document.addEventListener('click', onDocClick);
