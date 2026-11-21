@@ -63,4 +63,72 @@
   /* Layout */
   --nav-h: 72px;
   --content-max: 1240px;
+
+  /* Small surface tokens (so dark mode can override them) */
+  --card-border: rgba(236, 234, 228, 0.6);
+  --on-pastel: rgba(255, 255, 255, 0.7);       /* icon chips & bar tracks on pastel cards */
+  --mint-fg: #2F6B45;
+  --mint-sub: #3E5C48;
+  --badge-bg: #FCE3CC; --badge-fg: #9A4A0B;
+  --toast-bg: #1A1A1A;
+  --skel-a: #EFEDE8; --skel-b: #F7F6F2;
+  --chart-soft: #E4DCFB; --chart-soft-hover: #D3C6F8; --chart-grid: #F1EFEA;
+  --lv-hi-bg: #E7F6EC; --lv-hi-bd: #CBEBD5;
+  --lv-mid-bg: #FEF3E2; --lv-mid-bd: #F8DDB4;
+  --lv-lo-bg: #FDECEE; --lv-lo-bd: #F6C9D1;
+
+  color-scheme: light;
+}
+
+/* ─────────────────────────────────────────────
+   Dark theme — only the tokens change.
+   Set by <html data-theme="dark">.
+   ───────────────────────────────────────────── */
+:root[data-theme="dark"] {
+  --primary: #8B5CF6;
+  --primary-hover: #7C3AED;
+  --primary-light: #2A2142;
+  --primary-soft: #3B2E5E;
+
+  --bg: #0F0F12;
+  --surface: #18181C;
+  --surface-2: #1E1E23;
+  --surface-3: #26262C;
+  --border: #2A2A31;
+  --border-strong: #383840;
+  --text: #F4F4F5;
+  --text-2: #C9C9CF;
+  --muted: #9A9AA3;
+  --muted-2: #6B6B74;
+
+  --lavender: #262038;
+  --peach: #33261C;
+  --mint: #1B2B22;
+  --pink: #33202A;
+
+  --ok-bg: #132A1E;   --ok-fg: #6EE7A0;   --ok-bd: #1F4A33;
+  --late-bg: #2E2213; --late-fg: #FBBF5A; --late-bd: #4D3A1C;
+  --leave-bg: #261E3D; --leave-fg: #C4B5FD; --leave-bd: #3F3268;
+  --bad-bg: #321A20;  --bad-fg: #FDA4AF;  --bad-bd: #5A2A35;
+  --none-bg: #24242A; --none-fg: #A1A1AA; --none-bd: #33333A;
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.35), 0 1px 2px rgba(0, 0, 0, 0.25);
+  --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 18px 48px rgba(0, 0, 0, 0.55), 0 4px 12px rgba(0, 0, 0, 0.35);
+  --ring: 0 0 0 3px rgba(139, 92, 246, 0.35);
+
+  --card-border: rgba(255, 255, 255, 0.05);
+  --on-pastel: rgba(255, 255, 255, 0.08);
+  --mint-fg: #86D9A6;
+  --mint-sub: #A7C9B3;
+  --badge-bg: #33261C; --badge-fg: #FBBF5A;
+  --toast-bg: #2C2C33;
+  --skel-a: #1F1F24; --skel-b: #2A2A31;
+  --chart-soft: #3A2F5C; --chart-soft-hover: #4A3D73; --chart-grid: #26262C;
+  --lv-hi-bg: #132A1E; --lv-hi-bd: #1F4A33;
+  --lv-mid-bg: #2E2213; --lv-mid-bd: #4D3A1C;
+  --lv-lo-bg: #321A20; --lv-lo-bd: #5A2A35;
+
+  color-scheme: dark;
 }

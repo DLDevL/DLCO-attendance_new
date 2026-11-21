@@ -60,7 +60,7 @@ export default async function classesPage(root, ctx) {
         <div><div class="tile-name">${c}</div><div class="tile-meta">${ids.length} student${ids.length === 1 ? '' : 's'}</div></div>
         <div>
           <div class="row" style="justify-content:space-between;font-size:12.5px"><span class="tile-meta">Present today</span><b>${pct === null ? '—' : `${pct}%`}</b></div>
-          <div class="bar" style="margin-top:6px;background:rgba(255,255,255,.6)"><span style="width:${pct || 0}%"></span></div>
+          <div class="bar" style="margin-top:6px;background:var(--on-pastel)"><span style="width:${pct || 0}%"></span></div>
         </div>
         <a class="link-muted" href="#/attendance?section=${encodeURIComponent(c)}">Mark attendance ${Icon('arrow-right')}</a>
       </article>`;

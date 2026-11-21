@@ -3,23 +3,38 @@
    Pages register charts here so the router can
    destroy them when navigating away.
    ───────────────────────────────────────────── */
-const live = new Set();
+const live = new Set(); // { chart, canvas, build }
 const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 
 export function destroyCharts() {
-  live.forEach((c) => c.destroy());
+  live.forEach((e) => e.chart.destroy());
   live.clear();
 }
 
-function make(canvas, config) {
-  if (!window.Chart || !canvas) return null;
+function create(canvas, config) {
   const Chart = window.Chart;
   Chart.defaults.font.family = css('--font');
   Chart.defaults.color = css('--muted');
-  const chart = new Chart(canvas, config);
-  live.add(chart);
-  return chart;
+  return new Chart(canvas, config);
 }
+
+/** `build` returns a fresh config, read from the current CSS colours, so charts can be rebuilt on theme change. */
+function make(canvas, build) {
+  if (!window.Chart || !canvas) return null;
+  const entry = { canvas, build, chart: create(canvas, build()) };
+  live.add(entry);
+  return entry.chart;
+}
+
+// Charts bake their colours in when drawn — redraw them all when the theme flips.
+window.addEventListener('themechange', () => {
+  live.forEach((e) => {
+    e.chart.destroy();
+    const config = e.build();
+    config.options = { ...config.options, animation: false };
+    e.chart = create(e.canvas, config);
+  });
+});
 
 /** Draws value labels above bars (e.g. "87%"). */
 const topLabels = {
@@ -47,39 +62,42 @@ const tooltip = {
 
 /** 7-day bars: light lavender, the highlighted (today) bar solid purple, % labels on top. */
 export function weekBars(canvas, { labels, values, highlight = values.length - 1, format = (v) => `${Math.round(v)}%`, tooltipLabel = (v) => `${v}% present` }) {
-  const primary = css('--primary');
-  const soft = '#E4DCFB';
-  return make(canvas, {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [{
-        data: values,
-        backgroundColor: values.map((_, i) => (i === highlight ? primary : soft)),
-        hoverBackgroundColor: values.map((_, i) => (i === highlight ? primary : '#D3C6F8')),
-        borderRadius: 8, borderSkipped: false, maxBarThickness: 34, categoryPercentage: 0.82, barPercentage: 0.92,
-      }],
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false, layout: { padding: { top: 22 } },
-      animation: { duration: 700, easing: 'easeOutQuart' },
-      scales: {
-        x: { grid: { display: false }, border: { display: false }, ticks: { font: { size: 11 }, color: (c) => (c.index === highlight ? primary : css('--muted')) } },
-        y: { display: false, min: Math.max(0, Math.min(...values.filter((v) => v !== null)) - 25), max: 100 },
+  return make(canvas, () => {
+    const primary = css('--primary');
+    const soft = css('--chart-soft');
+    const softHover = css('--chart-soft-hover');
+    return {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          data: values,
+          backgroundColor: values.map((_, i) => (i === highlight ? primary : soft)),
+          hoverBackgroundColor: values.map((_, i) => (i === highlight ? primary : softHover)),
+          borderRadius: 8, borderSkipped: false, maxBarThickness: 34, categoryPercentage: 0.82, barPercentage: 0.92,
+        }],
       },
-      plugins: {
-        legend: { display: false },
-        tooltip: { ...tooltip, callbacks: { label: (c) => tooltipLabel(c.raw, c.dataIndex) } },
-        topLabels: { format },
+      options: {
+        responsive: true, maintainAspectRatio: false, layout: { padding: { top: 22 } },
+        animation: { duration: 700, easing: 'easeOutQuart' },
+        scales: {
+          x: { grid: { display: false }, border: { display: false }, ticks: { font: { size: 11 }, color: (c) => (c.index === highlight ? primary : css('--muted')) } },
+          y: { display: false, min: Math.max(0, Math.min(...values.filter((v) => v !== null)) - 25), max: 100 },
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: { ...tooltip, callbacks: { label: (c) => tooltipLabel(c.raw, c.dataIndex) } },
+          topLabels: { format },
+        },
       },
-    },
-    plugins: [topLabels],
+      plugins: [topLabels],
+    };
   });
 }
 
 /** Doughnut ring. */
 export function ring(canvas, { labels, values, colors, cutout = '74%' }) {
-  return make(canvas, {
+  return make(canvas, () => ({
     type: 'doughnut',
     data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 0, borderRadius: 6, spacing: 3, hoverOffset: 4 }] },
     options: {
@@ -87,7 +105,7 @@ export function ring(canvas, { labels, values, colors, cutout = '74%' }) {
       animation: { animateRotate: true, duration: 800 },
       plugins: { legend: { display: false }, tooltip: { ...tooltip, displayColors: true } },
     },
-  });
+  }));
 }
 
 /** Vertical or horizontal bars with a 75% reference line. */
@@ -107,9 +125,9 @@ export function bars(canvas, { labels, values, colors, horizontal = false, thres
       ctx.restore();
     },
   };
-  const valueAxis = { min: 0, max: 100, grid: { color: '#F1EFEA' }, border: { display: false }, ticks: { callback: (v) => v + suffix, font: { size: 11 } } };
+  const valueAxis = { min: 0, max: 100, grid: { color: () => css('--chart-grid') }, border: { display: false }, ticks: { callback: (v) => v + suffix, font: { size: 11 } } };
   const catAxis = { grid: { display: false }, border: { display: false }, ticks: { font: { size: 11 }, autoSkip: false } };
-  return make(canvas, {
+  return make(canvas, () => ({
     type: 'bar',
     data: { labels, datasets: [{ data: values, backgroundColor: colors || values.map((v) => (v < threshold ? '#FDA4AF' : '#C4B5FD')), borderRadius: 6, borderSkipped: false, maxBarThickness: 26 }] },
     options: {
@@ -118,7 +136,7 @@ export function bars(canvas, { labels, values, colors, horizontal = false, thres
       plugins: { legend: { display: false }, tooltip: { ...tooltip, callbacks: { label: (c) => `${Math.round(c.raw * 10) / 10}${suffix}` } } },
     },
     plugins: [thresholdLine],
-  });
+  }));
 }
 
 /** Lazy-load a script once (used for jsPDF). */
