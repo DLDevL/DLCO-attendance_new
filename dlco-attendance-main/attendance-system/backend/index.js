@@ -65,6 +65,33 @@ app.post('/api/auth/signup', async (req, res) => {
     return res.status(400).json({ error: 'role must be teacher or student' });
   }
 
+  if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    // Create the account directly with the admin API. This skips Supabase's
+    // confirmation email, whose built-in sender allows only ~2 emails per hour
+    // and was making every sign-up after the first one fail.
+    const { error: createError } = await db.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: { role }
+    });
+    if (createError) {
+      const taken = /already.*(registered|exists)/i.test(createError.message);
+      return res.status(taken ? 409 : 400).json({
+        error: taken ? 'An account with this email already exists. Sign in instead.' : createError.message
+      });
+    }
+
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) return res.status(400).json({ error: error.message });
+    return res.status(201).json({
+      message: 'Signup successful',
+      access_token: data.session.access_token,
+      refresh_token: data.session.refresh_token,
+      user: userPayload(data.user)
+    });
+  }
+
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
