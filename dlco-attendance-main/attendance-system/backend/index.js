@@ -11,6 +11,7 @@ const { supabase, db } = require('./supabase');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+app.set('trust proxy', true); // so req.protocol is https behind Vercel's proxy (used in email links)
 app.use(cors());
 app.use(express.json());
 
@@ -37,6 +38,9 @@ async function requireAuth(req, res, next) {
   if (error || !data.user) {
     return res.status(401).json({ error: 'Invalid or expired session' });
   }
+  if (!data.user.email_confirmed_at) {
+    return res.status(403).json({ error: 'Login required: verify your email first, then sign in again.' });
+  }
 
   req.user = userPayload(data.user);
   next();
@@ -54,6 +58,23 @@ function requireRole(role) {
 
 const requireTeacher = requireRole('teacher');
 
+/** Where links in auth emails should send people back to (this site). */
+function siteUrl(req) {
+  return process.env.SITE_URL || `${req.protocol}://${req.get('host')}`;
+}
+
+/** Turn Supabase's email-sending errors into something a user can act on. */
+function friendlyEmailError(error) {
+  const m = error.message || '';
+  if (/rate limit/i.test(m) || error.status === 429) {
+    return 'Too many emails were sent recently. Please wait a few minutes and try again.';
+  }
+  if (/sending.*email/i.test(m)) {
+    return 'We couldn’t send the confirmation email right now. Please try again in a few minutes.';
+  }
+  return m;
+}
+
 app.post('/api/auth/signup', async (req, res) => {
   const { email, password, role } = req.body;
 
@@ -65,46 +86,32 @@ app.post('/api/auth/signup', async (req, res) => {
     return res.status(400).json({ error: 'role must be teacher or student' });
   }
 
-  if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    // Create the account directly with the admin API. This skips Supabase's
-    // confirmation email, whose built-in sender allows only ~2 emails per hour
-    // and was making every sign-up after the first one fail.
-    const { error: createError } = await db.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: { role }
-    });
-    if (createError) {
-      const taken = /already.*(registered|exists)/i.test(createError.message);
-      return res.status(taken ? 409 : 400).json({
-        error: taken ? 'An account with this email already exists. Sign in instead.' : createError.message
-      });
-    }
-
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return res.status(400).json({ error: error.message });
-    return res.status(201).json({
-      message: 'Signup successful',
-      access_token: data.session.access_token,
-      refresh_token: data.session.refresh_token,
-      user: userPayload(data.user)
-    });
-  }
-
+  // Supabase emails a confirmation link; the account can't sign in until it's clicked.
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    options: { data: { role } }
+    options: { data: { role }, emailRedirectTo: siteUrl(req) }
   });
 
-  if (error) return res.status(400).json({ error: error.message });
+  if (error) {
+    console.warn('signUp:', error.message);
+    return res.status(400).json({ error: friendlyEmailError(error) });
+  }
+
+  // Supabase returns a user with no identities when the email is already registered.
+  if (data.user && data.user.identities?.length === 0) {
+    return res.status(409).json({ error: 'An account with this email already exists. Sign in instead.' });
+  }
+
+  // A session here means "Confirm email" is switched OFF in Supabase. Never hand it
+  // out: signing up must not log anyone in. They verify by email, then sign in manually.
+  if (data.session) {
+    console.warn('SECURITY: Supabase returned a session on sign-up — turn ON "Confirm email" in Supabase → Authentication → Providers → Email.');
+    await supabase.auth.signOut().catch(() => {});
+  }
 
   res.status(201).json({
-    message: data.session ? 'Signup successful' : 'Signup successful. Check your email to confirm your account.',
-    access_token: data.session?.access_token || null,
-    refresh_token: data.session?.refresh_token || null,
-    user: data.user ? userPayload(data.user) : null
+    message: `We sent a confirmation link to ${email}. Open it to verify your account, then sign in.`
   });
 });
 
@@ -116,7 +123,24 @@ app.post('/api/auth/login', async (req, res) => {
   }
 
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) return res.status(401).json({ error: error.message });
+  if (error) {
+    if (error.code === 'email_not_confirmed' || /not confirmed/i.test(error.message)) {
+      return res.status(403).json({
+        error: 'Please verify your email first. Open the confirmation link we sent you, then sign in.',
+        code: 'email_not_confirmed'
+      });
+    }
+    return res.status(401).json({ error: error.message });
+  }
+
+  // Double-check on our side too: no verified email, no login.
+  if (!data.user.email_confirmed_at) {
+    await supabase.auth.signOut().catch(() => {});
+    return res.status(403).json({
+      error: 'Please verify your email first. Open the confirmation link we sent you, then sign in.',
+      code: 'email_not_confirmed'
+    });
+  }
 
   res.json({
     message: 'Login successful',
@@ -124,6 +148,23 @@ app.post('/api/auth/login', async (req, res) => {
     refresh_token: data.session.refresh_token,
     user: userPayload(data.user)
   });
+});
+
+// POST /api/auth/resend-confirmation — public: send the sign-up confirmation email again
+app.post('/api/auth/resend-confirmation', async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: 'email is required' });
+
+  const { error } = await supabase.auth.resend({
+    type: 'signup',
+    email,
+    options: { emailRedirectTo: siteUrl(req) }
+  });
+  if (error) {
+    console.warn('resend:', error.message);
+    return res.status(400).json({ error: friendlyEmailError(error) });
+  }
+  res.json({ message: `A new confirmation link was sent to ${email}.` });
 });
 
 app.post('/api/auth/logout', requireAuth, (_req, res) => {
