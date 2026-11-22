@@ -3,6 +3,8 @@
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index.js" },
     { "source": "/assets/(.*)", "destination": "/attendance-system/frontend/assets/$1" },
+    { "source": "/privacy", "destination": "/attendance-system/frontend/privacy.html" },
+    { "source": "/terms", "destination": "/attendance-system/frontend/terms.html" },
     { "source": "/(.*)", "destination": "/attendance-system/frontend/index.html" }
   ]
 }

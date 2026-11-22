@@ -1,0 +1,24 @@
+/* Simple readable layout for the Privacy Policy and Terms pages. */
+:root {
+  --bg: #F7F6F3; --surface: #FFFFFF; --text: #1A1A1A; --muted: #6B7280;
+  --border: #ECEAE4; --primary: #6D28D9;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #0F0F12; --surface: #18181C; --text: #F4F4F5; --muted: #9A9AA3; --border: #2A2A31; --primary: #A78BFA; }
+}
+body {
+  margin: 0; padding: 32px 16px; background: var(--bg); color: var(--text);
+  font: 16px/1.65 system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+.legal {
+  max-width: 720px; margin: 0 auto; padding: 32px clamp(20px, 5vw, 48px);
+  background: var(--surface); border: 1px solid var(--border); border-radius: 20px;
+}
+h1 { font-size: 1.9rem; margin: 16px 0 4px; }
+h2 { font-size: 1.15rem; margin: 28px 0 8px; }
+.updated { color: var(--muted); margin-top: 0; }
+a { color: var(--primary); }
+.back { text-decoration: none; font-weight: 600; font-size: 0.95rem; }
+ul { padding-left: 1.2rem; }
+li { margin: 6px 0; }
