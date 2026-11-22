@@ -58,6 +58,8 @@ const PAGES = {
 export function displayName(user) {
   const p = getProfile(user?.email);
   if (p?.firstName) return `${p.firstName} ${p.lastName || ''}`.trim();
+  if (user?.name) return user.name; // Google accounts
+
   const local = (user?.email || 'User').split('@')[0].replace(/[._\d]+/g, ' ').trim();
   return local.replace(/\b\w/g, (c) => c.toUpperCase()) || 'User';
 }

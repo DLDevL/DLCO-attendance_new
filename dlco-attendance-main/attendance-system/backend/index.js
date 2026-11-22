@@ -22,6 +22,7 @@ function userPayload(user) {
   return {
     id: user.id,
     email: user.email,
+    name: user.user_metadata?.full_name || user.user_metadata?.name || null, // filled in for Google accounts
     role: user.user_metadata?.role === 'teacher' ? 'teacher' : 'student'
   };
 }
@@ -148,6 +149,16 @@ app.post('/api/auth/login', async (req, res) => {
     refresh_token: data.session.refresh_token,
     user: userPayload(data.user)
   });
+});
+
+// GET /api/auth/google — send the browser to Google (via Supabase) to sign in.
+// Google comes back to this site with #access_token=… which the frontend picks up.
+// Google has already verified the email, so these accounts pass the verified-email checks.
+app.get('/api/auth/google', (req, res) => {
+  const url = new URL('/auth/v1/authorize', supabase.supabaseUrl);
+  url.searchParams.set('provider', 'google');
+  url.searchParams.set('redirect_to', siteUrl(req));
+  res.redirect(url.toString());
 });
 
 // POST /api/auth/resend-confirmation — public: send the sign-up confirmation email again

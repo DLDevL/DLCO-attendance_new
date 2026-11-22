@@ -70,6 +70,8 @@ async function boot() {
         return showAuth({ type: 'err', text: 'Your session expired. Please sign in again.' });
       }
       console.warn('Backend unreachable, falling back to local data:', e);
+      // A fresh Google sign-in hasn't been checked by the server yet — don't trust it offline.
+      if (!auth.user?.email) { clearAuth(); return showAuth({ type: 'err', text: 'Can’t reach the server to finish signing in. Please try again.' }); }
     }
   }
 
@@ -137,6 +139,16 @@ function showSignIn(notice) {
   });
 }
 
+/* "Continue with Google" comes back as #access_token=…&refresh_token=… (no `type`).
+   The token is checked by the server on /auth/me before anything is shown. */
+function readOAuthLink() {
+  const h = new URLSearchParams(location.hash.replace(/^#/, ''));
+  if (h.get('type') || !h.get('access_token')) return false;
+  saveAuth({ token: h.get('access_token'), user: {} });
+  history.replaceState(null, '', location.pathname); // keep tokens out of the address bar
+  return true;
+}
+
 const recovery = readRecoveryLink();
 const confirmation = !recovery && readConfirmationLink();
 if (recovery) {
@@ -144,6 +156,8 @@ if (recovery) {
 } else if (confirmation) {
   clearAuth();
   showSignIn(confirmation);
+} else if (readOAuthLink()) {
+  boot();
 } else {
   consumeDemoParam();
   boot();

@@ -374,7 +374,14 @@ export function renderAuth(root, { onAuthed, onResetDone, mode: initialMode = 's
     if (t.closest('[data-resend]')) return resendConfirmation();
     if (t.closest('[data-forgot]')) return setMode('forgot');
     if (t.closest('[data-back]')) return setMode('signin');
-    if (t.closest('[data-google]')) { state.banner = { type: 'err', text: 'Google sign-in isn’t configured for this app yet. Use email and password.' }; paint(); return; }
+    if (t.closest('[data-google]')) {
+      // The server forwards to Google; Google returns here with a session in the URL (handled in app.js).
+      const g = t.closest('[data-google]');
+      g.disabled = true;
+      g.querySelector('span').textContent = 'Opening Google…';
+      location.href = '/api/auth/google';
+      return;
+    }
     if (t.closest('[data-terms]')) { e.preventDefault(); }
   });
   root.addEventListener('input', (e) => {
