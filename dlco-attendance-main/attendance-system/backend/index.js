@@ -16,7 +16,7 @@ app.use(cors());
 app.use(express.json());
 
 // Serve frontend from backend folder (useful for local testing)
-app.use(express.static(path.join(__dirname, '../frontend')));
+app.use(express.static(path.join(__dirname, '../frontend'), { extensions: ['html'] })); // /privacy → privacy.html
 
 function userPayload(user) {
   return {
@@ -154,7 +154,22 @@ app.post('/api/auth/login', async (req, res) => {
 // GET /api/auth/google — send the browser to Google (via Supabase) to sign in.
 // Google comes back to this site with #access_token=… which the frontend picks up.
 // Google has already verified the email, so these accounts pass the verified-email checks.
-app.get('/api/auth/google', (req, res) => {
+app.get('/api/auth/google', async (req, res) => {
+  // If Google isn't switched on in Supabase, come back to the sign-in page with a
+  // readable message instead of leaving the user on Supabase's raw JSON error.
+  try {
+    const r = await fetch(new URL('/auth/v1/settings', supabase.supabaseUrl), {
+      headers: { apikey: process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY }
+    });
+    const settings = await r.json();
+    if (settings?.external && !settings.external.google) {
+      const msg = 'Google sign-in isn’t available yet. Please use your email and password.';
+      return res.redirect(`${siteUrl(req)}/#error=google_disabled&error_description=${encodeURIComponent(msg)}`);
+    }
+  } catch (e) {
+    console.warn('Could not check Google provider settings:', e.message);
+  }
+
   const url = new URL('/auth/v1/authorize', supabase.supabaseUrl);
   url.searchParams.set('provider', 'google');
   url.searchParams.set('redirect_to', siteUrl(req));

@@ -239,8 +239,8 @@ export function renderAuth(root, { onAuthed, onResetDone, mode: initialMode = 's
     const recovery = state.mode === 'forgot' || state.mode === 'reset';
     [seg, $('.a-divider', root), $('[data-google]', root), $('#auth-foot', root)].forEach((el) => { el.hidden = recovery; });
     $('#auth-foot', root).innerHTML = state.mode === 'signup'
-      ? 'By creating an account, you agree to our <a href="#" data-terms>Terms &amp; Service</a>'
-      : 'By signing in, you agree to our <a href="#" data-terms>Terms &amp; Service</a>';
+      ? 'By creating an account, you agree to our <a href="/terms" target="_blank" rel="noopener">Terms of Service</a> and <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>'
+      : 'By signing in, you agree to our <a href="/terms" target="_blank" rel="noopener">Terms of Service</a> and <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>';
 
     const focused = document.activeElement?.name;
     const caret = document.activeElement?.selectionStart;
