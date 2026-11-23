@@ -157,14 +157,8 @@ async function finishGoogleSignIn(token) {
     location.hash = `#/${homeFor(user.role)}`;
     boot();
   } catch (e) {
-    if (e.code === 'no_account') {
-      document.title = 'Create an account · Attendance Register';
-      return renderAuth(fresh(), {
-        mode: 'signup',
-        notice: { type: 'err', text: e.message },
-        onAuthed: () => { location.hash = `#/${homeFor(getAuth().user.role)}`; boot(); },
-      });
-    }
+    // Back to the Sign in screen with the reason — e.g. "No account exists for …".
+    // The user can pick a different Google account straight away (the chooser always opens).
     showSignIn({ type: 'err', text: e.status ? e.message : 'Can’t reach the server to finish signing in. Please try again.' });
   }
 }
