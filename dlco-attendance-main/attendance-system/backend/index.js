@@ -185,6 +185,8 @@ app.get('/api/auth/google', async (req, res) => {
   const url = new URL('/auth/v1/authorize', supabase.supabaseUrl);
   url.searchParams.set('provider', 'google');
   url.searchParams.set('redirect_to', siteUrl(req));
+  // Always show Google's account chooser instead of silently reusing the last account.
+  url.searchParams.set('prompt', 'select_account');
   res.redirect(url.toString());
 });
 
@@ -203,7 +205,7 @@ app.post('/api/auth/google/complete', async (req, res) => {
     if (delError) console.warn('Could not remove Google-only user:', delError.message);
     return res.status(403).json({
       code: 'no_account',
-      error: `No account exists for ${data.user.email}. Create an account with this email first, verify it, then you can sign in with Google.`
+      error: `No account exists for ${data.user.email}. Please sign up with this email first (tap “Sign up” above), verify it, then you can continue with Google.`
     });
   }
 
