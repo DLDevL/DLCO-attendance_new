@@ -140,24 +140,45 @@ function showSignIn(notice) {
 }
 
 /* "Continue with Google" comes back as #access_token=…&refresh_token=… (no `type`).
-   The token is checked by the server on /auth/me before anything is shown. */
+   Returns the token, or null when this isn't a Google return. */
 function readOAuthLink() {
   const h = new URLSearchParams(location.hash.replace(/^#/, ''));
-  if (h.get('type') || !h.get('access_token')) return false;
-  saveAuth({ token: h.get('access_token'), user: {} });
+  if (h.get('type') || !h.get('access_token')) return null;
   history.replaceState(null, '', location.pathname); // keep tokens out of the address bar
-  return true;
+  return h.get('access_token');
+}
+
+/* The server only accepts Google for people who already created an account. */
+async function finishGoogleSignIn(token) {
+  clearAuth();
+  try {
+    const { user } = await api('POST', '/auth/google/complete', { access_token: token });
+    saveAuth({ token, user });
+    location.hash = `#/${homeFor(user.role)}`;
+    boot();
+  } catch (e) {
+    if (e.code === 'no_account') {
+      document.title = 'Create an account · Attendance Register';
+      return renderAuth(fresh(), {
+        mode: 'signup',
+        notice: { type: 'err', text: e.message },
+        onAuthed: () => { location.hash = `#/${homeFor(getAuth().user.role)}`; boot(); },
+      });
+    }
+    showSignIn({ type: 'err', text: e.status ? e.message : 'Can’t reach the server to finish signing in. Please try again.' });
+  }
 }
 
 const recovery = readRecoveryLink();
 const confirmation = !recovery && readConfirmationLink();
+const googleToken = !recovery && !confirmation && readOAuthLink();
 if (recovery) {
   showReset(recovery);
 } else if (confirmation) {
   clearAuth();
   showSignIn(confirmation);
-} else if (readOAuthLink()) {
-  boot();
+} else if (googleToken) {
+  finishGoogleSignIn(googleToken);
 } else {
   consumeDemoParam();
   boot();

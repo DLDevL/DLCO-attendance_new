@@ -42,9 +42,21 @@ async function requireAuth(req, res, next) {
   if (!data.user.email_confirmed_at) {
     return res.status(403).json({ error: 'Login required: verify your email first, then sign in again.' });
   }
+  if (!hasEmailAccount(data.user)) {
+    return res.status(403).json({ error: 'Login required: create an account with your email first.' });
+  }
 
   req.user = userPayload(data.user);
   next();
+}
+
+/**
+ * True when the user signed up on this site with email + password.
+ * Google sign-in links onto that same account (same email), so it then has
+ * both an "email" and a "google" identity. A Google-only user never signed up.
+ */
+function hasEmailAccount(user) {
+  return (user.identities || []).some((i) => i.provider === 'email');
 }
 
 function requireRole(role) {
@@ -174,6 +186,28 @@ app.get('/api/auth/google', async (req, res) => {
   url.searchParams.set('provider', 'google');
   url.searchParams.set('redirect_to', siteUrl(req));
   res.redirect(url.toString());
+});
+
+// POST /api/auth/google/complete — called when Google sends the user back.
+// Only people who already created (and verified) an account may sign in with Google.
+// If Supabase just made a brand-new Google-only user, remove it and refuse.
+app.post('/api/auth/google/complete', async (req, res) => {
+  const { access_token } = req.body;
+  if (!access_token) return res.status(400).json({ error: 'access_token is required' });
+
+  const { data, error } = await supabase.auth.getUser(access_token);
+  if (error || !data.user) return res.status(401).json({ error: 'Google sign-in failed. Please try again.' });
+
+  if (!hasEmailAccount(data.user)) {
+    const { error: delError } = await db.auth.admin.deleteUser(data.user.id);
+    if (delError) console.warn('Could not remove Google-only user:', delError.message);
+    return res.status(403).json({
+      code: 'no_account',
+      error: `No account exists for ${data.user.email}. Create an account with this email first, verify it, then you can sign in with Google.`
+    });
+  }
+
+  res.json({ user: userPayload(data.user) });
 });
 
 // POST /api/auth/resend-confirmation — public: send the sign-up confirmation email again

@@ -237,7 +237,9 @@ export function renderAuth(root, { onAuthed, onResetDone, mode: initialMode = 's
     $('#auth-title', root).textContent = TITLES[state.mode];
     // The sign up / sign in toggle and social login don't apply to the password-reset screens.
     const recovery = state.mode === 'forgot' || state.mode === 'reset';
-    [seg, $('.a-divider', root), $('[data-google]', root), $('#auth-foot', root)].forEach((el) => { el.hidden = recovery; });
+    [seg, $('#auth-foot', root)].forEach((el) => { el.hidden = recovery; });
+    // Google is for signing in to an existing account only — not for creating one.
+    [$('.a-divider', root), $('[data-google]', root)].forEach((el) => { el.hidden = state.mode !== 'signin'; });
     $('#auth-foot', root).innerHTML = state.mode === 'signup'
       ? 'By creating an account, you agree to our <a href="/terms" target="_blank" rel="noopener">Terms of Service</a> and <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>'
       : 'By signing in, you agree to our <a href="/terms" target="_blank" rel="noopener">Terms of Service</a> and <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>';
