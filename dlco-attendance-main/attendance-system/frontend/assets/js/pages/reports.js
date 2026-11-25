@@ -11,7 +11,7 @@ const THRESHOLD = 75;
 export default async function reportsPage(root, ctx) {
   const today = new Date();
   const state = { from: isoDate(addDays(today, -6)), to: isoDate(today), cls: '', preset: '7' };
-  let report = [], warnings = svc.getWarnings();
+  let report = [], warnings = {};
   const focus = ctx.params.get('student');
 
   const classes = await svc.listClasses();
@@ -47,9 +47,10 @@ export default async function reportsPage(root, ctx) {
   async function load() {
     ['#subj', '#stud'].forEach((id) => mount($(id, root), Skeleton.block(260)));
     const range = state.preset === 'all' ? {} : { from: state.from, to: state.to };
-    const [rep, subj] = await Promise.all([svc.getReport({ cls: state.cls || undefined, ...range }), svc.getSubjectAverages(state.cls || undefined)]);
+    const [rep, subj, warned] = await Promise.all([svc.getReport({ cls: state.cls || undefined, ...range }), svc.getSubjectAverages(state.cls || undefined), svc.getWarnings()]);
     if (ctx.isStale()) return;
     report = rep;
+    warnings = warned;
     paint(subj);
   }
 
@@ -170,11 +171,14 @@ export default async function reportsPage(root, ctx) {
     }),
     on(root, 'click', '[data-warn]', async (_, el) => {
       el.disabled = true;
-      const r = report.find((x) => x.id === el.dataset.warn);
-      await svc.sendWarning(r.id);
-      warnings = svc.getWarnings();
-      paintDefaulters(report.filter((x) => x.attendancePct !== null && x.attendancePct < THRESHOLD).sort((a, b) => a.attendancePct - b.attendancePct));
-      toast(`Warning logged for ${r.name}. No email service is connected yet, so let them know in person.`, { icon: 'send' });
+      const r = report.find((x) => String(x.id) === el.dataset.warn);
+      if (!r) return;
+      try {
+        const { delivered } = await svc.sendWarning(r.id, { pct: r.attendancePct, message: `Your attendance is ${r.attendancePct}%, below the required ${THRESHOLD}%. Please attend regularly.` });
+        warnings = await svc.getWarnings();
+        paintDefaulters(report.filter((x) => x.attendancePct !== null && x.attendancePct < THRESHOLD).sort((a, b) => a.attendancePct - b.attendancePct));
+        toast(delivered ? `Warning sent — ${r.name} will see it on their dashboard.` : `Warning logged for ${r.name} on this device only, so let them know in person.`, { icon: 'send' });
+      } catch (e) { el.disabled = false; toast('Couldn’t send the warning: ' + e.message, { error: true }); }
     }),
     on(root, 'click', '[data-action="csv"]', exportCSV),
     on(root, 'click', '[data-action="pdf"]', exportPDF),

@@ -1,17 +1,16 @@
 {
-  "name": "attendance",
+  "name": "attendance-register",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "api/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node attendance-system/backend/index.js"
   },
   "author": "",
-  "license": "ISC",
-  "description": "",
+  "license": "MIT",
+  "description": "Attendance Register — Vercel entry point (serves the Express API in attendance-system/backend).",
   "dependencies": {
     "@supabase/supabase-js": "^2.105.4",
     "cors": "^2.8.6",
-    "express": "^5.2.1",
-    "mongoose": "^9.5.0"
+    "express": "^5.2.1"
   }
 }

@@ -1,18 +1,17 @@
 {
-  "name": "attendance",
+  "name": "attendance-register-backend",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node index.js"
   },
   "author": "",
-  "license": "ISC",
-  "description": "",
+  "license": "MIT",
+  "description": "Express + Supabase API for Attendance Register: auth (email verification, Google sign-in), classes, students, attendance, leaves and reports.",
   "dependencies": {
     "@supabase/supabase-js": "^2.105.4",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
-    "express": "^5.2.1",
-    "mongoose": "^9.5.0"
+    "express": "^5.2.1"
   }
 }

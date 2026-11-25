@@ -55,7 +55,7 @@ export default async function timetablePage(root, ctx) {
   const empty = !Object.values(tt).flat().some(Boolean);
   mount($('#tt', root), Card({
     title: `${me.cls} · weekly schedule`,
-    sub: svc.isMock() ? 'Demo timetable' : 'Set up by your teacher on this device',
+    sub: svc.isMock() ? 'Demo timetable' : svc.linkedToServer() ? 'Published by your teacher — updates appear here automatically' : 'Set up by your teacher on this device',
     body: empty ? EmptyState('No timetable published yet', 'Your teacher hasn’t added periods for your section.', 'calendar-x') : TimetableGrid(tt, subjects),
   }));
 }

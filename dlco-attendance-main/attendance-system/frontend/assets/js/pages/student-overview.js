@@ -29,7 +29,7 @@ export default async function studentOverview(root, ctx) {
     return;
   }
 
-  const [recs, tt, subjects, requests] = await Promise.all([svc.getAttendance(), svc.getTimetable(me.cls), svc.listSubjects(), svc.listLeaveRequests()]);
+  const [recs, tt, subjects, requests, warnings] = await Promise.all([svc.getAttendance(), svc.getTimetable(me.cls), svc.listSubjects(), svc.listLeaveRequests(), svc.myWarnings().catch(() => [])]);
   if (ctx.isStale()) return;
   const map = Object.fromEntries(recs.map((r) => [r.date, r]));
   const todayRec = map[isoDate(today)];
@@ -71,7 +71,14 @@ export default async function studentOverview(root, ctx) {
   });
 
   const pending = requests.filter((r) => r.status === 'pending');
+  const warn = warnings[0];
   mount($('#right', root), html`
+    ${warn ? html`<section class="card pink" role="status">
+      <div class="mint-row"><span class="mint-icon" style="color:var(--bad-fg)">${Icon('triangle-alert')}</span><div>
+        <div class="mint-title">Attendance warning from your teacher</div>
+        <div class="mint-sub">${warn.message || 'Your attendance is below the required 75%. Please attend regularly.'}</div>
+        <div class="c-muted" style="font-size:12px;margin-top:4px">Sent ${fmtShort(parseISO(warn.createdAt.slice(0, 10)))}${warnings.length > 1 ? ` · ${warnings.length} warnings this term` : ''}</div>
+      </div></div></section>` : ''}
     <section class="card purple">
       <div class="follow-title">Bunk check ${Icon('sparkles')}</div>
       <p class="follow-text">${total ? bunkLine(b, 75) : 'Once classes are recorded you’ll see how many you can miss.'}</p>
@@ -80,7 +87,7 @@ export default async function studentOverview(root, ctx) {
     ${Card({
       title: 'Leave requests',
       actions: html`<a class="link-muted" href="#/apply-leave">New ${Icon('arrow-up-right')}</a>`,
-      body: requests.length ? html`<div>${requests.slice(0, 4).map((r) => html`<div class="row" style="justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span><b style="font-size:13px">${r.type}</b><div class="c-muted" style="font-size:12px">${fmtShort(parseISO(r.from))}${r.to !== r.from ? ` – ${fmtShort(parseISO(r.to))}` : ''}</div></span>${StatusPill(r.status)}</div>`)}</div>` : EmptyState('No requests yet', '', 'inbox'),
+      body: requests.length ? html`<div>${requests.slice(0, 4).map((r) => html`<div class="row" style="justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span><b style="font-size:13px">${r.type}</b><div class="c-muted" style="font-size:12px">${fmtShort(parseISO(r.from))}${r.to !== r.from ? ` – ${fmtShort(parseISO(r.to))}` : ''}${r.note ? ` · ${r.note}` : ''}</div></span>${StatusPill(r.status)}</div>`)}</div>` : EmptyState('No requests yet', '', 'inbox'),
     })}
     <section class="card mint"><div class="mint-row"><span class="mint-icon">${Icon('target')}</span><div><div class="mint-title">${overall === null ? 'Goal: 75%' : overall >= 75 ? 'Above the 75% line.' : 'Below the 75% line.'}</div><div class="mint-sub">${pending.length ? `${pending.length} leave request${pending.length === 1 ? '' : 's'} awaiting review` : 'No pending leave requests'}${overall !== null ? ` · ${pct1(overall)}% overall` : ''}</div></div></div></section>`);
 }

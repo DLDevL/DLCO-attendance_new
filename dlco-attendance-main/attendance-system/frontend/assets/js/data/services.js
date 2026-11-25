@@ -6,13 +6,12 @@
                        which api() routes to transparently)
    source = 'mock'   → generated demo data (mock-data.js)
 
-   Features the backend has no endpoint for yet
-   (subjects, timetable, leave requests, warnings,
-   check-in/out times) are served from a local
-   "extras" store in server mode. Swap each function
-   body for a real fetch when the endpoint exists.
+   Subjects, timetable, leave requests and warnings
+   come from the server too (shared between the
+   teacher and student portals). Only per-subject
+   stats and check-in/out times have no API yet.
    ───────────────────────────────────────────── */
-import { api, isTeacher, getAuth, LOCAL, loadLocal, setUseLocal, isNetworkError } from '../core/api.js';
+import { api, isTeacher, getAuth, LOCAL, loadLocal, setUseLocal, usingLocal, isNetworkError } from '../core/api.js';
 import { buildMockDB, SUBJECTS, SECTIONS, PERIODS, DAYS } from './mock-data.js';
 import { isoDate } from '../core/html.js';
 
@@ -159,7 +158,8 @@ export async function updateStudent(id, patch) {
     if (patch.roll && patch.roll !== s.roll && db.students.some((x) => x.roll === patch.roll)) throw new Error('Roll number already exists');
     Object.assign(s, patch); saveMock(); return pub(s);
   }
-  throw new NotSupportedError('Editing needs a PUT /api/students/:id endpoint on the server. Delete and re-add the student for now.');
+  if (usingLocal()) throw new NotSupportedError('Editing isn’t available while offline. Delete and re-add the student for now.');
+  return (await api('PUT', `/students/${id}`, patch)).student;
 }
 export async function deleteStudent(id) {
   if (isMock()) {
@@ -256,16 +256,52 @@ export async function saveLeaveBalance(sid, { el, cl, elUsed, clUsed }) {
   await api('POST', '/leaves', { sid, el_total: el, cl_total: cl, el_used: elUsed, cl_used: clUsed });
 }
 
-/* ── subjects (no API yet) ── */
-export async function listSubjects() { await delay(60); return structuredClone(store().subjects); }
-export async function saveSubject(subj) {
-  const s = store();
-  const i = s.subjects.findIndex((x) => x.code === subj.code);
-  if (i >= 0) s.subjects[i] = { ...s.subjects[i], ...subj };
-  else s.subjects.push({ color: '#6D28D9', ...subj });
-  save();
+/* ── shared teacher ↔ student data ──
+   Subjects, timetable, leave requests and warnings are stored on the
+   server (see backend/schema-portal-link.sql), so a teacher's changes
+   reach students and students' requests reach the teacher.
+   Mock mode, the offline fallback, or a database without those tables
+   yet all use the local store instead. */
+let notSetUp = false;
+const useLinked = () => !isMock() && !usingLocal() && !notSetUp;
+export const linkedToServer = () => useLinked();
+async function linked(call, fallback) {
+  if (!useLinked()) return fallback();
+  try { return await call(); } catch (e) {
+    if (e.code !== 'not_set_up' && !isNetworkError(e)) throw e;
+    console.warn('Shared data unavailable — using this browser only:', e.message);
+    notSetUp = true;
+    return fallback();
+  }
 }
-export async function deleteSubject(code) { const s = store(); s.subjects = s.subjects.filter((x) => x.code !== code); save(); }
+const emptyGrid = () => Object.fromEntries(DAYS.map((d) => [d, PERIODS.map(() => null)]));
+const sameId = (a, b) => a != null && b != null && String(a) === String(b);
+
+/* ── subjects ── */
+export async function listSubjects() {
+  return linked(
+    async () => (await api('GET', '/subjects')).subjects,
+    async () => { await delay(60); return structuredClone(store().subjects); },
+  );
+}
+export async function saveSubject(subj) {
+  return linked(
+    () => api('PUT', `/subjects/${encodeURIComponent(subj.code)}`, subj),
+    () => {
+      const s = store();
+      const i = s.subjects.findIndex((x) => x.code === subj.code);
+      if (i >= 0) s.subjects[i] = { ...s.subjects[i], ...subj };
+      else s.subjects.push({ color: '#6D28D9', ...subj });
+      save();
+    },
+  );
+}
+export async function deleteSubject(code) {
+  return linked(
+    () => api('DELETE', `/subjects/${encodeURIComponent(code)}`),
+    () => { const s = store(); s.subjects = s.subjects.filter((x) => x.code !== code); save(); },
+  );
+}
 
 /** Subject-wise term stats for one student, or null when the backend can't provide them. */
 export async function getSubjectStats(sid) {
@@ -285,47 +321,123 @@ export async function getSubjectAverages(cls) {
   return db.subjects.filter((s) => acc[s.code]).map((s) => ({ subject: s, pct: (acc[s.code].attended / acc[s.code].held) * 100 }));
 }
 
-/* ── timetable (no API yet) ── */
+/* ── timetable ── */
 export async function getTimetable(cls) {
-  await delay(100);
-  const t = store().timetable[cls];
-  if (t) return structuredClone(t);
-  return Object.fromEntries(DAYS.map((d) => [d, PERIODS.map(() => null)]));
+  return linked(
+    async () => {
+      const { timetable } = await api('GET', '/timetable' + (cls ? `?cls=${encodeURIComponent(cls)}` : ''));
+      const grid = emptyGrid();
+      for (const [day, periods] of Object.entries(timetable || {})) {
+        if (!grid[day]) continue;
+        for (const [p, slot] of Object.entries(periods)) if (grid[day][p] !== undefined) grid[day][p] = slot;
+      }
+      return grid;
+    },
+    async () => {
+      await delay(100);
+      const t = store().timetable[cls];
+      return t ? structuredClone(t) : emptyGrid();
+    },
+  );
 }
 export async function setTimetableSlot(cls, day, period, slot) {
-  const s = store();
-  if (!s.timetable[cls]) s.timetable[cls] = Object.fromEntries(DAYS.map((d) => [d, PERIODS.map(() => null)]));
-  s.timetable[cls][day][period] = slot;
-  save();
+  return linked(
+    () => api('PUT', '/timetable', { cls, day, period, slot }),
+    () => {
+      const s = store();
+      if (!s.timetable[cls]) s.timetable[cls] = emptyGrid();
+      s.timetable[cls][day][period] = slot;
+      save();
+    },
+  );
 }
 
-/* ── leave requests (no API yet) ── */
+/* ── leave requests ── */
 export async function listLeaveRequests() {
-  await delay(160);
-  let r = store().leaveRequests;
-  if (!isTeacher()) r = r.filter((x) => x.sid === meStudent?.id);
-  return structuredClone(r).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return linked(
+    async () => (await api('GET', '/leave-requests')).requests,
+    async () => {
+      await delay(160);
+      let r = store().leaveRequests;
+      if (!isTeacher()) r = r.filter((x) => sameId(x.sid, meStudent?.id));
+      return structuredClone(r).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    },
+  );
 }
 export async function createLeaveRequest({ type, from, to, reason }) {
   if (!meStudent) throw new Error('Your login email isn’t linked to a student record yet. Ask your teacher to add it.');
-  const days = Math.round((new Date(to) - new Date(from)) / 86400000) + 1;
-  const req = { id: 'lr' + Date.now(), sid: meStudent.id, type, from, to, days, reason, status: 'pending', createdAt: isoDate() };
-  store().leaveRequests.push(req); save();
-  return req;
+  return linked(
+    async () => (await api('POST', '/leave-requests', { type, from, to, reason })).request,
+    () => {
+      const days = Math.round((new Date(to) - new Date(from)) / 86400000) + 1;
+      const req = { id: 'lr' + Date.now(), sid: meStudent.id, type, from, to, days, reason, status: 'pending', createdAt: isoDate() };
+      store().leaveRequests.push(req); save();
+      return req;
+    },
+  );
 }
 export async function setLeaveRequestStatus(id, status) {
-  const r = store().leaveRequests.find((x) => x.id === id);
-  if (!r) throw new Error('Request not found');
-  r.status = status; r.decidedAt = isoDate(); save();
-  return r;
+  return linked(
+    async () => (await api('PATCH', `/leave-requests/${encodeURIComponent(id)}`, { status })).request,
+    () => {
+      const r = store().leaveRequests.find((x) => x.id === id);
+      if (!r) throw new Error('Request not found');
+      r.status = status; r.decidedAt = status === 'pending' ? null : isoDate(); save();
+      return r;
+    },
+  );
 }
 
-/* ── warnings (no notification service yet) ── */
-export async function sendWarning(sid) {
-  await delay(300);
-  store().warnings[sid] = isoDate(); save();
-  return { delivered: false };
+/** Remove one request (withdraws it if still pending). */
+export async function deleteLeaveRequest(id) {
+  return linked(
+    () => api('DELETE', `/leave-requests/${encodeURIComponent(id)}`),
+    () => { const s = store(); s.leaveRequests = s.leaveRequests.filter((x) => x.id !== id); save(); },
+  );
 }
-export const getWarnings = () => ({ ...store().warnings });
+/** Clear history: remove every approved/rejected request (pending ones stay). Returns how many went. */
+export async function clearLeaveHistory() {
+  return linked(
+    async () => (await api('DELETE', '/leave-requests')).count,
+    () => {
+      const s = store();
+      const mine = (x) => isTeacher() || sameId(x.sid, meStudent?.id);
+      const before = s.leaveRequests.length;
+      s.leaveRequests = s.leaveRequests.filter((x) => !(mine(x) && x.status !== 'pending'));
+      save();
+      return before - s.leaveRequests.length;
+    },
+  );
+}
+
+/* ── low-attendance warnings ── */
+/** Teacher → student. Saved on the server so the student sees it on their dashboard. */
+export async function sendWarning(sid, { pct, message } = {}) {
+  return linked(
+    async () => { await api('POST', '/warnings', { sid, pct, message }); return { delivered: true }; },
+    async () => { await delay(300); store().warnings[sid] = isoDate(); save(); return { delivered: false }; },
+  );
+}
+/** Teacher view: sid → date of the latest warning. */
+export async function getWarnings() {
+  return linked(
+    async () => {
+      const out = {};
+      (await api('GET', '/warnings')).warnings.forEach((w) => { out[w.sid] ||= w.createdAt.slice(0, 10); });
+      return out;
+    },
+    async () => ({ ...store().warnings }),
+  );
+}
+/** Student view: the warnings their teacher has sent them, newest first. */
+export async function myWarnings() {
+  return linked(
+    async () => (await api('GET', '/warnings')).warnings,
+    async () => {
+      const d = meStudent && store().warnings[meStudent.id];
+      return d ? [{ id: 'w-local', sid: meStudent.id, pct: null, message: null, createdAt: d }] : [];
+    },
+  );
+}
 
 export { SECTIONS };
