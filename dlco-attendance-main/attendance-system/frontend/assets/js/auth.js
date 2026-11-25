@@ -238,12 +238,8 @@ export function renderAuth(root, { onAuthed, onResetDone, mode: initialMode = 's
     // The sign up / sign in toggle and social login don't apply to the password-reset screens.
     const recovery = state.mode === 'forgot' || state.mode === 'reset';
     [seg, $('#auth-foot', root)].forEach((el) => { el.hidden = recovery; });
-    // Google: "Sign up with Google" on the sign-up screen, "Continue with Google" on sign in.
-    const gMode = state.mode === 'signup' || state.mode === 'signin';
-    [$('.a-divider', root), $('[data-google]', root)].forEach((el) => { el.hidden = !gMode; });
-    $('.a-divider', root).textContent = state.mode === 'signup' ? 'OR SIGN UP WITH' : 'OR SIGN IN WITH';
-    const gBtn = $('[data-google]', root);
-    if (!gBtn.disabled) gBtn.querySelector('span').textContent = state.mode === 'signup' ? 'Sign up with Google' : 'Continue with Google';
+    // Google is for signing in to an existing account only — not for creating one.
+    [$('.a-divider', root), $('[data-google]', root)].forEach((el) => { el.hidden = state.mode !== 'signin'; });
     $('#auth-foot', root).innerHTML = state.mode === 'signup'
       ? 'By creating an account, you agree to our <a href="/terms" target="_blank" rel="noopener">Terms of Service</a> and <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>'
       : 'By signing in, you agree to our <a href="/terms" target="_blank" rel="noopener">Terms of Service</a> and <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>';
@@ -383,20 +379,6 @@ export function renderAuth(root, { onAuthed, onResetDone, mode: initialMode = 's
     if (t.closest('[data-google]')) {
       // The server forwards to Google; Google returns here with a session in the URL (handled in app.js).
       const g = t.closest('[data-google]');
-      let intent = { mode: 'signin' };
-      if (state.mode === 'signup') {
-        // Google gives us the name and a verified email — we only need to know the role.
-        if (!state.values.role) {
-          state.touched.role = true;
-          state.errors.role = 'Choose your role first';
-          state.banner = { type: 'err', text: 'Select your role (Student or Teacher), then tap “Sign up with Google”.' };
-          paint();
-          return;
-        }
-        // Admin accounts get teacher permissions, same as email sign-up.
-        intent = { mode: 'signup', role: state.values.role === 'student' ? 'student' : 'teacher', title: state.values.role };
-      }
-      try { sessionStorage.setItem('google_intent', JSON.stringify(intent)); } catch {}
       g.disabled = true;
       g.querySelector('span').textContent = 'Opening Google…';
       location.href = '/api/auth/google';
