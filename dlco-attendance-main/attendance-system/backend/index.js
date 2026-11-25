@@ -1,5 +1,6 @@
 try {
-  require('dotenv').config();
+  // Load backend/.env no matter which folder the server is started from.
+  require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 } catch (error) {
   // dotenv is helpful locally, but production can provide env vars directly.
 }
@@ -343,7 +344,7 @@ app.get('/api/students', async (req, res) => {
 
   if (req.user.role === 'student') {
     // Students only ever see their own roster row, matched by login email.
-    query = query.eq('email', req.user.email);
+    query = query.ilike('email', likeExact(req.user.email));
   } else if (cls) {
     query = query.eq('cls', cls);
   }
@@ -353,9 +354,15 @@ app.get('/api/students', async (req, res) => {
   res.json({ students: data });
 });
 
+/** Pattern for a case-insensitive exact match with .ilike() (escapes the % and _ wildcards). */
+function likeExact(value) {
+  return String(value || '').replace(/[\\%_]/g, (c) => '\\' + c);
+}
+const cleanEmail = (e) => (e ? String(e).trim().toLowerCase() : null);
+
 // Look up the students.id that belongs to the currently logged-in student.
 async function getOwnStudentId(email) {
-  const { data } = await db.from('students').select('id').eq('email', email).single();
+  const { data } = await db.from('students').select('id').ilike('email', likeExact(email)).limit(1).maybeSingle();
   return data?.id || null;
 }
 
@@ -367,7 +374,7 @@ app.post('/api/students', requireTeacher, async (req, res) => {
 
   const { data, error } = await db
     .from('students')
-    .insert([{ name, roll, cls, email: email || null }])
+    .insert([{ name, roll, cls, email: cleanEmail(email) }])
     .select()
     .single();
 
@@ -379,6 +386,27 @@ app.post('/api/students', requireTeacher, async (req, res) => {
   res.status(201).json({ message: 'Student added', student: data });
 });
 
+// PUT /api/students/:id — edit a student (e.g. fix the email that links their login)
+app.put('/api/students/:id', requireTeacher, async (req, res) => {
+  const patch = {};
+  for (const k of ['name', 'roll', 'cls']) {
+    if (req.body[k] !== undefined) {
+      if (!String(req.body[k]).trim()) return res.status(400).json({ error: `${k} can't be empty` });
+      patch[k] = String(req.body[k]).trim();
+    }
+  }
+  if (req.body.email !== undefined) patch.email = cleanEmail(req.body.email);
+  if (!Object.keys(patch).length) return res.status(400).json({ error: 'Nothing to update' });
+
+  const { data, error } = await db.from('students').update(patch).eq('id', req.params.id).select().single();
+  if (error) {
+    if (error.code === '23505') return res.status(409).json({ error: 'Roll number already exists' });
+    if (error.code === 'PGRST116') return res.status(404).json({ error: 'Student not found' });
+    return res.status(500).json({ error: error.message });
+  }
+  res.json({ message: 'Student updated', student: data });
+});
+
 // DELETE /api/students/:id
 app.delete('/api/students/:id', requireTeacher, async (req, res) => {
   const { id } = req.params;
@@ -388,6 +416,11 @@ app.delete('/api/students/:id', requireTeacher, async (req, res) => {
     .eq('id', id);
 
   if (error) return res.status(500).json({ error: error.message });
+  // Best-effort cleanup of the student's shared records (tables may not exist yet).
+  await Promise.all([
+    db.from('leave_requests').delete().eq('sid', String(id)),
+    db.from('warnings').delete().eq('sid', String(id))
+  ]).catch(() => {});
   res.json({ message: 'Student removed' });
 });
 
@@ -468,7 +501,7 @@ app.get('/api/report', async (req, res) => {
   // Get students
   let stuQuery = db.from('students').select('*');
   if (req.user.role === 'student') {
-    stuQuery = stuQuery.eq('email', req.user.email);
+    stuQuery = stuQuery.ilike('email', likeExact(req.user.email));
   } else if (cls) {
     stuQuery = stuQuery.eq('cls', cls);
   }
@@ -551,6 +584,202 @@ app.post('/api/leaves', requireTeacher, async (req, res) => {
 
   if (error) return res.status(500).json({ error: error.message });
   res.json({ message: 'Leaves updated' });
+});
+
+// ──────────────────────────────────────────
+// TEACHER ↔ STUDENT LINK
+// subjects, timetable, leave requests, warnings
+// (tables from schema-portal-link.sql)
+// ──────────────────────────────────────────
+
+/** Send a DB error; a missing table gets a clear "run the migration" message the frontend recognises. */
+function dbError(res, error) {
+  if (error.code === 'PGRST205' || error.code === '42P01') {
+    return res.status(501).json({
+      code: 'not_set_up',
+      error: 'This feature needs its database tables. Run backend/schema-portal-link.sql in the Supabase SQL Editor.'
+    });
+  }
+  return res.status(500).json({ error: error.message });
+}
+
+/** The logged-in student's roster row (id + class), or null when their email isn't on the roster. */
+async function getOwnStudent(email) {
+  const { data } = await db.from('students').select('id, cls').ilike('email', likeExact(email)).limit(1).maybeSingle();
+  return data || null;
+}
+
+const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const leaveOut = (r) => ({
+  id: r.id, sid: r.sid, type: r.type, from: r.from_date, to: r.to_date, days: r.days,
+  reason: r.reason, status: r.status, note: r.note || null,
+  createdAt: r.created_at, decidedAt: r.decided_at
+});
+
+// GET /api/subjects — everyone (students need names/colours for their timetable)
+app.get('/api/subjects', async (_req, res) => {
+  const { data, error } = await db.from('subjects').select('*').order('code');
+  if (error) return dbError(res, error);
+  res.json({ subjects: data });
+});
+
+// PUT /api/subjects/:code — add or update a subject
+app.put('/api/subjects/:code', requireTeacher, async (req, res) => {
+  const code = String(req.params.code).trim().toUpperCase();
+  const { name, short, teacher, color } = req.body;
+  if (!code || !name) return res.status(400).json({ error: 'code and name are required' });
+  const { data, error } = await db
+    .from('subjects')
+    .upsert({ code, name, short: short || null, teacher: teacher || null, color: color || '#6D28D9' }, { onConflict: 'code' })
+    .select()
+    .single();
+  if (error) return dbError(res, error);
+  res.json({ subject: data });
+});
+
+// DELETE /api/subjects/:code
+app.delete('/api/subjects/:code', requireTeacher, async (req, res) => {
+  const { error } = await db.from('subjects').delete().eq('code', req.params.code);
+  if (error) return dbError(res, error);
+  res.json({ message: 'Subject deleted' });
+});
+
+// GET /api/timetable?cls= — teachers pick any class; students always get their own
+app.get('/api/timetable', async (req, res) => {
+  let { cls } = req.query;
+  if (req.user.role === 'student') {
+    const me = await getOwnStudent(req.user.email);
+    if (!me) return res.json({ cls: null, timetable: {} });
+    cls = me.cls;
+  }
+  if (!cls) return res.status(400).json({ error: 'cls is required' });
+
+  const { data, error } = await db.from('timetable').select('*').eq('cls', cls);
+  if (error) return dbError(res, error);
+  const timetable = {};
+  data.forEach((r) => { (timetable[r.day] ||= {})[r.period] = { code: r.code, room: r.room || '' }; });
+  res.json({ cls, timetable });
+});
+
+// PUT /api/timetable — set one period ({ cls, day, period, slot }); slot null clears it
+app.put('/api/timetable', requireTeacher, async (req, res) => {
+  const { cls, day, period, slot } = req.body;
+  if (!cls || !DAYS.includes(day) || !Number.isInteger(period) || period < 0) {
+    return res.status(400).json({ error: 'cls, day (Mon–Sat) and period are required' });
+  }
+  const q = slot?.code
+    ? db.from('timetable').upsert({ cls, day, period, code: slot.code, room: slot.room || null }, { onConflict: 'cls,day,period' })
+    : db.from('timetable').delete().match({ cls, day, period });
+  const { error } = await q;
+  if (error) return dbError(res, error);
+  res.json({ message: 'Timetable updated' });
+});
+
+// GET /api/leave-requests — teachers see all, students see their own
+app.get('/api/leave-requests', async (req, res) => {
+  let query = db.from('leave_requests').select('*').order('created_at', { ascending: false });
+  if (req.user.role === 'student') {
+    const me = await getOwnStudent(req.user.email);
+    if (!me) return res.json({ requests: [] });
+    query = query.eq('sid', String(me.id));
+  }
+  const { data, error } = await query;
+  if (error) return dbError(res, error);
+  res.json({ requests: data.map(leaveOut) });
+});
+
+// POST /api/leave-requests — a student applies for leave
+app.post('/api/leave-requests', requireRole('student'), async (req, res) => {
+  const { type, from, to, reason } = req.body;
+  const iso = /^\d{4}-\d{2}-\d{2}$/;
+  if (!type || !iso.test(from || '') || !iso.test(to || '') || !reason || String(reason).trim().length < 5) {
+    return res.status(400).json({ error: 'type, from, to and a short reason are required' });
+  }
+  if (to < from) return res.status(400).json({ error: 'End date is before the start date' });
+
+  const me = await getOwnStudent(req.user.email);
+  if (!me) {
+    return res.status(403).json({ error: 'Your login email isn’t linked to a student record yet. Ask your teacher to add it.' });
+  }
+  const days = Math.round((Date.parse(to) - Date.parse(from)) / 86400000) + 1;
+  const { data, error } = await db
+    .from('leave_requests')
+    .insert({ sid: String(me.id), type: String(type).slice(0, 60), from_date: from, to_date: to, days, reason: String(reason).trim().slice(0, 500) })
+    .select()
+    .single();
+  if (error) return dbError(res, error);
+  res.status(201).json({ request: leaveOut(data) });
+});
+
+// PATCH /api/leave-requests/:id — teacher approves / rejects / moves back to pending
+app.patch('/api/leave-requests/:id', requireTeacher, async (req, res) => {
+  const { status, note } = req.body;
+  if (!['pending', 'approved', 'rejected'].includes(status)) {
+    return res.status(400).json({ error: 'status must be pending, approved or rejected' });
+  }
+  const { data, error } = await db
+    .from('leave_requests')
+    .update({ status, note: note || null, decided_at: status === 'pending' ? null : new Date().toISOString() })
+    .eq('id', req.params.id)
+    .select()
+    .single();
+  if (error) return dbError(res, error);
+  res.json({ request: leaveOut(data) });
+});
+
+// DELETE /api/leave-requests/:id — remove one request
+// Students can remove their own (a pending one is withdrawn); teachers can remove any.
+app.delete('/api/leave-requests/:id', async (req, res) => {
+  let query = db.from('leave_requests').delete().eq('id', req.params.id);
+  if (req.user.role === 'student') {
+    const me = await getOwnStudent(req.user.email);
+    if (!me) return res.status(403).json({ error: 'Your account isn’t linked to a student record.' });
+    query = query.eq('sid', String(me.id));
+  }
+  const { data, error } = await query.select('id');
+  if (error) return dbError(res, error);
+  if (!data.length) return res.status(404).json({ error: 'Request not found' });
+  res.json({ message: 'Request removed' });
+});
+
+// DELETE /api/leave-requests — clear history: every approved/rejected request
+// (a student's own, or all of them for a teacher). Pending requests are kept.
+app.delete('/api/leave-requests', async (req, res) => {
+  let query = db.from('leave_requests').delete().neq('status', 'pending');
+  if (req.user.role === 'student') {
+    const me = await getOwnStudent(req.user.email);
+    if (!me) return res.status(403).json({ error: 'Your account isn’t linked to a student record.' });
+    query = query.eq('sid', String(me.id));
+  }
+  const { data, error } = await query.select('id');
+  if (error) return dbError(res, error);
+  res.json({ message: 'History cleared', count: data.length });
+});
+
+// GET /api/warnings — teachers get the latest per student; students get their own list
+app.get('/api/warnings', async (req, res) => {
+  let query = db.from('warnings').select('*').order('created_at', { ascending: false });
+  if (req.user.role === 'student') {
+    const me = await getOwnStudent(req.user.email);
+    if (!me) return res.json({ warnings: [] });
+    query = query.eq('sid', String(me.id));
+  }
+  const { data, error } = await query;
+  if (error) return dbError(res, error);
+  res.json({ warnings: data.map((w) => ({ id: w.id, sid: w.sid, pct: w.pct, message: w.message, createdAt: w.created_at })) });
+});
+
+// POST /api/warnings — teacher sends a low-attendance warning to a student
+app.post('/api/warnings', requireTeacher, async (req, res) => {
+  const { sid, pct, message } = req.body;
+  if (sid === undefined || sid === null || sid === '') return res.status(400).json({ error: 'sid is required' });
+  const { data, error } = await db
+    .from('warnings')
+    .insert({ sid: String(sid), pct: Number.isFinite(pct) ? Math.round(pct) : null, message: message ? String(message).slice(0, 500) : null })
+    .select()
+    .single();
+  if (error) return dbError(res, error);
+  res.status(201).json({ warning: { id: data.id, sid: data.sid, pct: data.pct, message: data.message, createdAt: data.created_at } });
 });
 
 // ──────────────────────────────────────────

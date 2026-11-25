@@ -6,7 +6,7 @@
 import { html, mount, $, $$, icons } from './core/html.js';
 import { destroyCharts } from './core/charts.js';
 import { getAuth, isTeacher } from './core/api.js';
-import { isMock, getSource } from './data/services.js';
+import { isMock, getSource, listLeaveRequests, myWarnings } from './data/services.js';
 import { Avatar, Icon } from './components.js';
 import { getProfile } from './auth.js';
 import { getTheme, toggleTheme } from './core/theme.js';
@@ -71,13 +71,11 @@ export function roleLabel(user) {
 
 const NOTIFS = {
   teacher: [
-    { text: 'New leave requests are waiting for review', time: 'Today', href: '#/leaves' },
     { text: 'Some students are below 75% attendance', time: 'This week', href: '#/reports' },
     { text: 'Remember to mark today’s attendance', time: 'Today', href: '#/attendance' },
   ],
   student: [
     { text: 'Check how many classes you can still skip', time: 'Today', href: '#/my-attendance' },
-    { text: 'Your leave request status may have changed', time: 'This week', href: '#/apply-leave' },
   ],
 };
 
@@ -104,6 +102,7 @@ export function startShell(root, { onLogout }) {
             <button class="icon-btn" data-menu="notif" aria-label="Notifications" aria-expanded="false" aria-haspopup="true">${Icon('bell')}<span class="dot-unread" data-unread></span></button>
             <div class="menu" data-menu-panel="notif" style="min-width:300px">
               <div class="menu-head"><div class="name">Notifications</div></div>
+              <div data-live-notifs></div>
               ${NOTIFS[role].map((n) => html`<a class="notif-item" href="${n.href}"><span class="n-dot"></span><span><div>${n.text}</div><div class="n-time">${n.time}</div></span></a>`)}
             </div>
           </div>
@@ -153,7 +152,7 @@ export function startShell(root, { onLogout }) {
       if (open) {
         m.setAttribute('aria-expanded', 'true');
         $(`[data-menu-panel="${m.dataset.menu}"]`, root).classList.add('open');
-        if (m.dataset.menu === 'notif') $('[data-unread]', root)?.remove();
+        if (m.dataset.menu === 'notif') { $('[data-unread]', root)?.remove(); loadNotifs(); }
       }
       return;
     }
@@ -165,6 +164,31 @@ export function startShell(root, { onLogout }) {
     const tt = e.target.closest('[data-theme-toggle]');
     if (tt) { toggleTheme(); paintThemeToggle(tt, true); }
   };
+  /* Live items from the other portal: new requests for teachers, decisions + warnings for students. */
+  let notifsLoading = false;
+  async function loadNotifs() {
+    if (notifsLoading) return;
+    notifsLoading = true;
+    try {
+      const items = [];
+      const reqs = await listLeaveRequests().catch(() => []);
+      if (role === 'teacher') {
+        const pending = reqs.filter((r) => r.status === 'pending').length;
+        if (pending) items.push({ text: `${pending} leave request${pending === 1 ? ' is' : 's are'} waiting for review`, time: 'From students', href: '#/leaves' });
+      } else {
+        reqs.filter((r) => r.status !== 'pending' && r.decidedAt).slice(0, 3).forEach((r) => items.push({
+          text: `Your ${r.type.toLowerCase()} leave was ${r.status}`, time: String(r.decidedAt).slice(0, 10), href: '#/apply-leave',
+        }));
+        const w = (await myWarnings().catch(() => []))[0];
+        if (w) items.unshift({ text: 'Your teacher sent you a low-attendance warning', time: String(w.createdAt).slice(0, 10), href: '#/overview' });
+      }
+      const box = $('[data-live-notifs]', root);
+      if (!box) return;
+      mount(box, html`${items.map((n) => html`<a class="notif-item" href="${n.href}"><span class="n-dot"></span><span><div><b>${n.text}</b></div><div class="n-time">${n.time}</div></span></a>`)}`);
+    } finally { notifsLoading = false; }
+  }
+  loadNotifs();
+
   const onKey = (e) => { if (e.key === 'Escape') { closeMenus(); setDrawer(false); } };
   document.addEventListener('click', onDocClick);
   document.addEventListener('keydown', onKey);

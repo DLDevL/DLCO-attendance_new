@@ -32,7 +32,7 @@ export default async function myAttendance(root, ctx) {
     ${Skeleton.block(220)}`);
 
   if (!me) {
-    mount(root, html`<div class="page-head"><div><h1 class="page-title">My attendance</h1></div></div>${Card({ body: EmptyState('Your account isn’t linked to a student record yet', 'Ask your teacher to add you using the email you signed up with. Your attendance will appear here automatically.', 'link-2-off') })}`);
+    mount(root, html`<div class="page-head"><div><h1 class="page-title">My attendance</h1></div></div>${Card({ body: EmptyState('Your account isn’t linked to a student record yet', `You’re signed in as ${ctx.user.email}. Ask your teacher to add you (or fix your email) on their Students page using exactly this address — your attendance, timetable and leave will appear here automatically.`, 'link-2-off') })}`);
     return;
   }
 

@@ -1,7 +1,7 @@
 /* Leave Requests — approve/reject requests, plus the original EL/CL balance tools. */
 import { html, raw, mount, $, on, parseISO, fmtShort } from '../core/html.js';
 import * as svc from '../data/services.js';
-import { Card, StatusPill, DataTable, Pager, PersonCell, Tabs, Button, Icon, Skeleton, EmptyState, Avatar, toast } from '../components.js';
+import { Card, StatusPill, DataTable, Pager, PersonCell, Tabs, Button, Icon, Skeleton, EmptyState, Avatar, toast, confirmDialog } from '../components.js';
 
 const fmtRange = (a, b) => (a === b ? fmtShort(parseISO(a)) : `${fmtShort(parseISO(a))} – ${fmtShort(parseISO(b))}`);
 
@@ -37,7 +37,7 @@ export default async function leavesPage(root, ctx) {
     const map = byId();
     mount($('#body', root), Card({
       title: 'Requests',
-      sub: svc.isMock() ? 'Demo requests' : 'Requests students submit from this device (no leave-request API yet).',
+      sub: svc.isMock() ? 'Demo requests' : svc.linkedToServer() ? 'Submitted by students from their portal. Your decision shows up on their dashboard.' : 'Requests from this device only — run schema-portal-link.sql to link the student portal.',
       actions: Tabs(['pending', 'approved', 'rejected', 'all'].map((v) => ({ value: v, label: `${v[0].toUpperCase() + v.slice(1)} · ${counts[v]}` })), state.filter, { name: 'filter', tone: 'on-white' }),
       body: list.length ? html`<div>${list.map((r) => {
         const s = map[r.sid] || { name: 'Unknown student', roll: '—', cls: '—' };
@@ -51,7 +51,7 @@ export default async function leavesPage(root, ctx) {
           ${StatusPill(r.status)}
           ${r.status === 'pending'
             ? html`<div class="row" style="gap:8px">${Button('Reject', { variant: 'danger', size: 'btn-sm', icon: 'x', attrs: `data-decide="rejected" data-id="${r.id}"` })}${Button('Approve', { variant: 'success', size: 'btn-sm', icon: 'check', attrs: `data-decide="approved" data-id="${r.id}"` })}</div>`
-            : html`<button class="link-muted" data-decide="pending" data-id="${r.id}">${Icon('undo-2')} Undo</button>`}
+            : html`<div class="row" style="gap:10px"><button class="link-muted" data-decide="pending" data-id="${r.id}">${Icon('undo-2')} Undo</button><button class="row-action" data-del-req="${r.id}" aria-label="Remove this request" title="Remove from history">${Icon('trash-2')}</button></div>`}
         </div>`;
       })}</div>` : EmptyState(state.filter === 'pending' ? 'Nothing waiting for review' : 'No requests here', state.filter === 'pending' ? 'New requests from students will show up here.' : '', state.filter === 'pending' ? 'inbox' : 'list'),
     }));
@@ -140,10 +140,17 @@ export default async function leavesPage(root, ctx) {
     on(root, 'click', '[data-tab]', (_, el) => { state.tab = el.dataset.tab; state.page = 1; paint(); }),
     on(root, 'click', '[data-filter]', (_, el) => { state.filter = el.dataset.filter; paintRequests(); }),
     on(root, 'click', '[data-decide]', async (_, el) => {
-      const r = await svc.setLeaveRequestStatus(el.dataset.id, el.dataset.decide);
+      let r;
+      try { r = await svc.setLeaveRequestStatus(el.dataset.id, el.dataset.decide); } catch (e) { return toast(e.message, { error: true }); }
       const s = byId()[r.sid];
       toast(r.status === 'pending' ? 'Moved back to pending' : `${r.status === 'approved' ? 'Approved' : 'Rejected'} ${s ? s.name.split(' ')[0] + '’s' : 'the'} request`);
       loadRequests();
+    }),
+    on(root, 'click', '[data-del-req]', async (_, el) => {
+      const ok = await confirmDialog({ title: 'Remove this request?', message: 'It will be removed for you and for the student.', confirmLabel: 'Remove', danger: true });
+      if (!ok) return;
+      try { await svc.deleteLeaveRequest(el.dataset.delReq); toast('Request removed'); loadRequests(); }
+      catch (e) { toast(e.message, { error: true }); }
     }),
     on(root, 'click', '[data-use]', (_, el) => changeUse(el.dataset.sid, el.dataset.use, 1)),
     on(root, 'click', '[data-undo]', (_, el) => changeUse(el.dataset.sid, el.dataset.undo, -1)),
