@@ -23,7 +23,8 @@ A web app for teachers to take class attendance and for students to track their 
 
 **Accounts & security**
 - Sign up with email — a **confirmation email must be clicked before the first sign-in**
-- **Continue with Google** — only for people who already created an account (Google always shows the account chooser)
+- **Sign up with Google** — pick your role, then register in one step with no confirmation email (Google has already verified the address)
+- **Continue with Google** — sign in to an existing account (Google always shows the account chooser)
 - **Forgot password** — reset link by email, then choose a new password on the site
 - Role-based access (teacher / student) checked on the server for every request
 - Privacy Policy and Terms pages

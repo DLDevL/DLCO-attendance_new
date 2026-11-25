@@ -43,8 +43,8 @@ async function requireAuth(req, res, next) {
   if (!data.user.email_confirmed_at) {
     return res.status(403).json({ error: 'Login required: verify your email first, then sign in again.' });
   }
-  if (!hasEmailAccount(data.user)) {
-    return res.status(403).json({ error: 'Login required: create an account with your email first.' });
+  if (!hasAccount(data.user)) {
+    return res.status(403).json({ error: 'Login required: create an account first.' });
   }
 
   req.user = userPayload(data.user);
@@ -58,6 +58,14 @@ async function requireAuth(req, res, next) {
  */
 function hasEmailAccount(user) {
   return (user.identities || []).some((i) => i.provider === 'email');
+}
+
+/**
+ * True when the user registered on this site: either with email + password,
+ * or with "Sign up with Google" (flagged in app_metadata, which only the server can set).
+ */
+function hasAccount(user) {
+  return hasEmailAccount(user) || user.app_metadata?.google_signup === true;
 }
 
 function requireRole(role) {
@@ -192,21 +200,41 @@ app.get('/api/auth/google', async (req, res) => {
 });
 
 // POST /api/auth/google/complete — called when Google sends the user back.
-// Only people who already created (and verified) an account may sign in with Google.
-// If Supabase just made a brand-new Google-only user, remove it and refuse.
+// mode 'signup' ("Sign up with Google"): registers the Google account straight away with the
+//   chosen role. No confirmation email — Google has already verified the address.
+// mode 'signin' ("Continue with Google"): only for people who already have an account.
+//   If Supabase just made a brand-new Google-only user, remove it and refuse.
 app.post('/api/auth/google/complete', async (req, res) => {
-  const { access_token } = req.body;
+  const { access_token, mode, role } = req.body;
   if (!access_token) return res.status(400).json({ error: 'access_token is required' });
 
   const { data, error } = await supabase.auth.getUser(access_token);
   if (error || !data.user) return res.status(401).json({ error: 'Google sign-in failed. Please try again.' });
 
-  if (!hasEmailAccount(data.user)) {
+  if (mode === 'signup' && !hasAccount(data.user)) {
+    if (!['teacher', 'student'].includes(role)) {
+      return res.status(400).json({ error: 'Choose your role before signing up with Google.' });
+    }
+    if (!data.user.email_confirmed_at) {
+      return res.status(403).json({ error: 'Google didn’t confirm this email address. Please sign up with email instead.' });
+    }
+    const { data: updated, error: upError } = await db.auth.admin.updateUserById(data.user.id, {
+      app_metadata: { ...data.user.app_metadata, google_signup: true },
+      user_metadata: { ...data.user.user_metadata, role }
+    });
+    if (upError) {
+      console.warn('Google sign-up failed:', upError.message);
+      return res.status(500).json({ error: 'Couldn’t create your account. Please try again.' });
+    }
+    return res.status(201).json({ created: true, user: userPayload(updated.user) });
+  }
+
+  if (!hasAccount(data.user)) {
     const { error: delError } = await db.auth.admin.deleteUser(data.user.id);
     if (delError) console.warn('Could not remove Google-only user:', delError.message);
     return res.status(403).json({
       code: 'no_account',
-      error: `No account exists for ${data.user.email}. Please sign up with this email first (tap “Sign up” above), verify it, then you can continue with Google.`
+      error: `No account exists for ${data.user.email}. Tap “Sign up” above to create one — you can sign up with Google directly.`
     });
   }
 

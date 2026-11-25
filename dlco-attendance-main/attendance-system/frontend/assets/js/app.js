@@ -5,7 +5,7 @@
    unreachable → local/mock data.
    ───────────────────────────────────────────── */
 import { api, getAuth, saveAuth, clearAuth, isAuthError } from './core/api.js';
-import { renderAuth, getProfile } from './auth.js';
+import { renderAuth, getProfile, saveProfile } from './auth.js';
 import { startShell, homeFor } from './shell.js';
 import { initData } from './data/services.js';
 import { toast } from './components.js';
@@ -148,11 +148,18 @@ function readOAuthLink() {
   return h.get('access_token');
 }
 
-/* The server only accepts Google for people who already created an account. */
+/* "Sign up with Google" registers the account right away (no confirmation email);
+   "Continue with Google" only works for people who already have an account. */
 async function finishGoogleSignIn(token) {
   clearAuth();
+  let intent = { mode: 'signin' };
+  try { intent = JSON.parse(sessionStorage.getItem('google_intent') || 'null') || intent; sessionStorage.removeItem('google_intent'); } catch {}
   try {
-    const { user } = await api('POST', '/auth/google/complete', { access_token: token });
+    const { user, created } = await api('POST', '/auth/google/complete', { access_token: token, mode: intent.mode, role: intent.role });
+    if (created && intent.title && !getProfile(user.email)) {
+      const [firstName = '', ...rest] = (user.name || '').split(' ');
+      saveProfile(user.email, { firstName, lastName: rest.join(' '), title: intent.title, phone: '' });
+    }
     saveAuth({ token, user });
     location.hash = `#/${homeFor(user.role)}`;
     boot();
